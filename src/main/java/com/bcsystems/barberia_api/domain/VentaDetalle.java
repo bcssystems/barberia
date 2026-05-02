@@ -28,5 +28,6 @@ public class VentaDetalle {
     private Servicio servicio;
     private Integer cantidad;
     private Double precio;
+    private Boolean comisionPagada = false;
 
 }

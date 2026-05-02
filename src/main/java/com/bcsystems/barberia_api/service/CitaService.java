@@ -5,6 +5,7 @@ import com.bcsystems.barberia_api.domain.CitaDetails;
 import com.bcsystems.barberia_api.domain.Cliente;
 import com.bcsystems.barberia_api.domain.Empleado;
 import com.bcsystems.barberia_api.domain.Servicio;
+import com.bcsystems.barberia_api.domain.Venta;
 import com.bcsystems.barberia_api.domain.en.EstadoCita;
 import com.bcsystems.barberia_api.dto.CitaDetailsDTO;
 import com.bcsystems.barberia_api.dto.CitaDTO;
@@ -12,6 +13,7 @@ import com.bcsystems.barberia_api.repository.CitaRepository;
 import com.bcsystems.barberia_api.repository.ClienteRepository;
 import com.bcsystems.barberia_api.repository.EmpleadoRepository;
 import com.bcsystems.barberia_api.repository.ServicioRepository;
+import com.bcsystems.barberia_api.repository.VentaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,13 +31,16 @@ public class CitaService {
     private final ClienteRepository clienteRepository;
     private final EmpleadoRepository empleadoRepository;
     private final ServicioRepository servicioRepository;
+    private final VentaRepository ventaRepository;
 
     public CitaService(CitaRepository citaRepository, ClienteRepository clienteRepository,
-                       EmpleadoRepository empleadoRepository, ServicioRepository servicioRepository) {
+                       EmpleadoRepository empleadoRepository, ServicioRepository servicioRepository,
+                       VentaRepository ventaRepository) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.empleadoRepository = empleadoRepository;
         this.servicioRepository = servicioRepository;
+        this.ventaRepository = ventaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -101,10 +106,16 @@ public class CitaService {
 
     @Transactional
     public void delete(Integer id) {
-        if (!citaRepository.existsById(id)) {
-            throw new RuntimeException("Cita no encontrada");
+        Cita cita = citaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Cita no encontrada"));
+        cita.setEstado(EstadoCita.CANCELADA);
+        citaRepository.save(cita);
+
+        List<Venta> ventas = ventaRepository.findByCitaIdCita(id, Pageable.unpaged()).getContent();
+        for (Venta venta : ventas) {
+            venta.setCita(null);
+            ventaRepository.save(venta);
         }
-        citaRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)

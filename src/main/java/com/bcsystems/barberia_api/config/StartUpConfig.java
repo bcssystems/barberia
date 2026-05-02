@@ -26,7 +26,7 @@ public class StartUpConfig {
         };
     }
 
-    @Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 604800000)
     public void verificarLicencia() {
         String clienteId = ClienteIdUtil.obtenerClienteId();
         LicenciaService licenciaService = new LicenciaService();
