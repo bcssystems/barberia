@@ -1,6 +1,7 @@
 package com.bcsystems.barberia_api.service;
 
 import com.bcsystems.barberia_api.domain.Cita;
+import com.bcsystems.barberia_api.domain.CitaDetails;
 import com.bcsystems.barberia_api.domain.Producto;
 import com.bcsystems.barberia_api.domain.Servicio;
 import com.bcsystems.barberia_api.domain.Venta;
@@ -50,6 +51,25 @@ public class VentaService {
     @Transactional
     public VentaDTO save(VentaDTO dto) {
         Venta venta = toEntity(dto);
+        
+        // Si la venta está ligada a una cita, agregar automáticamente los servicios de la cita
+        if (venta.getCita() != null && (venta.getDetalles() == null || venta.getDetalles().isEmpty())) {
+            Cita cita = venta.getCita();
+            if (cita.getDetalles() != null && !cita.getDetalles().isEmpty()) {
+                List<VentaDetalle> detallesFromCita = new ArrayList<>();
+                for (CitaDetails citaDetail : cita.getDetalles()) {
+                    VentaDetalle vd = new VentaDetalle();
+                    vd.setVenta(venta);
+                    vd.setServicio(citaDetail.getServicio());
+                    vd.setCantidad(1);
+                    vd.setPrecio(citaDetail.getPrecio());
+                    vd.setComisionPagada(false);
+                    detallesFromCita.add(vd);
+                }
+                venta.setDetalles(detallesFromCita);
+            }
+        }
+        
         double total = calcularTotal(venta);
         venta.setTotal(total);
         Venta saved = ventaRepository.save(venta);

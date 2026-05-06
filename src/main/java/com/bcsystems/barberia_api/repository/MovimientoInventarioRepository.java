@@ -19,4 +19,9 @@ public interface MovimientoInventarioRepository extends JpaRepository<Movimiento
     Page<MovimientoInventario> findByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, Pageable pageable);
     
     Page<MovimientoInventario> findByTipoMovimiento(TipoMovimiento tipoMovimiento, Pageable pageable);
+    
+    @Query("SELECT SUM(m.producto.precioCompra * m.cantidad) FROM MovimientoInventario m " +
+           "WHERE m.tipoMovimiento = 'ENTRADA' " +
+           "AND m.fecha BETWEEN :start AND :end AND m.producto.precioCompra IS NOT NULL")
+    Double sumComprasByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

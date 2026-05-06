@@ -1,5 +1,6 @@
 package com.bcsystems.barberia_api.controller;
 
+import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.dto.CorteComisionDTO;
 import com.bcsystems.barberia_api.dto.PagoComisionDTO;
 import com.bcsystems.barberia_api.service.ComisionService;
@@ -53,6 +54,13 @@ public class ComisionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
         return ResponseEntity.ok(comisionService.generarCorte(inicio, fin));
+    }
+
+    @GetMapping("/corte-completo")
+    public ResponseEntity<CorteCompletoDTO> generarCorteCompleto(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
+        return ResponseEntity.ok(comisionService.generarCorteCompleto(inicio, fin));
     }
 
     @PostMapping("/pagar")

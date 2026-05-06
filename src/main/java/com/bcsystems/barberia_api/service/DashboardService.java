@@ -4,6 +4,7 @@ import com.bcsystems.barberia_api.domain.Empleado;
 import com.bcsystems.barberia_api.dto.DashboardDTO;
 import com.bcsystems.barberia_api.repository.CitaRepository;
 import com.bcsystems.barberia_api.repository.EmpleadoRepository;
+import com.bcsystems.barberia_api.repository.MovimientoInventarioRepository;
 import com.bcsystems.barberia_api.repository.VentaDetalleRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,16 @@ public class DashboardService {
     private final CitaRepository citaRepository;
     private final VentaDetalleRepository ventaDetalleRepository;
     private final EmpleadoRepository empleadoRepository;
+    private final MovimientoInventarioRepository movimientoInventarioRepository;
 
     public DashboardService(VentaRepository ventaRepository, CitaRepository citaRepository,
-                             VentaDetalleRepository ventaDetalleRepository, EmpleadoRepository empleadoRepository) {
+                             VentaDetalleRepository ventaDetalleRepository, EmpleadoRepository empleadoRepository,
+                             MovimientoInventarioRepository movimientoInventarioRepository) {
         this.ventaRepository = ventaRepository;
         this.citaRepository = citaRepository;
         this.ventaDetalleRepository = ventaDetalleRepository;
         this.empleadoRepository = empleadoRepository;
+        this.movimientoInventarioRepository = movimientoInventarioRepository;
     }
 
     @Transactional(readOnly = true)
@@ -40,31 +44,40 @@ public class DashboardService {
         LocalDateTime finDia = hoy.atTime(LocalTime.MAX);
         
         LocalDateTime inicioSemana = hoy.minusDays(7).atStartOfDay();
-        LocalDateTime finMes = hoy.withDayOfMonth(hoy.lengthOfMonth()).atTime(LocalTime.MAX);
+        LocalDateTime finDiaSemana = hoy.atTime(LocalTime.MAX);
 
         Double ventasDia = ventaRepository.sumTotalByFechaBetween(inicioDia, finDia);
-        Double ventasSemana = ventaRepository.sumTotalByFechaBetween(inicioSemana, finDia);
-        LocalDate primerDiaMes = finDia.toLocalDate().withDayOfMonth(1);
-        Double ventasMes = ventaRepository.sumTotalByFechaBetween(primerDiaMes.atStartOfDay(), finDia);
+        Double ventasSemana = ventaRepository.sumTotalByFechaBetween(inicioSemana, finDiaSemana);
+        LocalDate primerDiaMes = hoy.withDayOfMonth(1);
+        Double ventasMes = ventaRepository.sumTotalByFechaBetween(primerDiaMes.atStartOfDay(), finDiaSemana);
 
         Long citasDia = citaRepository.countByFechaInicioBetween(inicioDia, finDia);
-        Long citasSemana = citaRepository.countByFechaInicioBetween(inicioSemana, finDia);
-        Long citasMes = citaRepository.countByFechaInicioBetween(primerDiaMes.atStartOfDay(), finDia);
+        Long citasSemana = citaRepository.countByFechaInicioBetween(inicioSemana, finDiaSemana);
+        Long citasMes = citaRepository.countByFechaInicioBetween(primerDiaMes.atStartOfDay(), finDiaSemana);
 
-        Double totalServicios = ventaDetalleRepository.sumServiciosByFechaBetween(inicioSemana, finDia);
-        Double totalProductos = ventaDetalleRepository.sumTotalProductosByFechaBetween(inicioSemana, finDia);
-        Double costoProductos = ventaDetalleRepository.sumCostoProductosByFechaBetween(inicioSemana, finDia);
+        // Ventas por tipo
+        Double totalServicios = ventaDetalleRepository.sumServiciosByFechaBetween(inicioSemana, finDiaSemana);
+        Double totalProductosVendidos = ventaDetalleRepository.sumTotalProductosByFechaBetween(inicioSemana, finDiaSemana);
+        Double costoProductosVendidos = ventaDetalleRepository.sumCostoProductosByFechaBetween(inicioSemana, finDiaSemana);
+        
+        // Gastos de inventario (compras nuevas)
+        Double gastosInventario = movimientoInventarioRepository.sumComprasByFechaBetween(inicioSemana, finDiaSemana);
 
         double totalServiciosVal = totalServicios != null ? totalServicios : 0.0;
-        double totalProductosVal = totalProductos != null ? totalProductos : 0.0;
-        double costoProductosVal = costoProductos != null ? costoProductos : 0.0;
+        double totalProductosVal = totalProductosVendidos != null ? totalProductosVendidos : 0.0;
+        double costoProductosVal = costoProductosVendidos != null ? costoProductosVendidos : 0.0;
+        double gastosInventarioVal = gastosInventario != null ? gastosInventario : 0.0;
 
+        // Utilidad bruta = Ventas - Costos de lo vendido
+        double utilidadBruta = (totalServiciosVal + totalProductosVal) - costoProductosVal;
+        
+        // Comisiones estimadas
         double totalComisiones = calcularComisiones(totalServiciosVal);
-        double ventasTotales = ventasSemana != null ? ventasSemana : 0.0;
-        double utilidadProductos = totalProductosVal - costoProductosVal;
-        double gananciasNetas = (totalServiciosVal + utilidadProductos) - totalComisiones;
+        
+        // Utilidad neta = Utilidad bruta - Comisiones - Gastos de inventario
+        double gananciasNetas = utilidadBruta - totalComisiones - gastosInventarioVal;
 
-        List<Object[]> productosData = ventaDetalleRepository.findProductosMasVendidosBetween(inicioSemana, finDia);
+        List<Object[]> productosData = ventaDetalleRepository.findProductosMasVendidosBetween(inicioSemana, finDiaSemana);
         List<DashboardDTO.ProductoVendidoDTO> productosVendidos = new ArrayList<>();
         for (Object[] row : productosData) {
             DashboardDTO.ProductoVendidoDTO p = new DashboardDTO.ProductoVendidoDTO();
@@ -75,14 +88,14 @@ public class DashboardService {
             productosVendidos.add(p);
         }
 
-        List<Object[]> citasEmpleadoData = citaRepository.countCitasByEmpleadoBetween(inicioSemana, finDia);
+        List<Object[]> citasEmpleadoData = citaRepository.countCitasByEmpleadoBetween(inicioSemana, finDiaSemana);
         List<DashboardDTO.CitasEmpleadoDTO> citasPorEmpleado = new ArrayList<>();
         for (Object[] row : citasEmpleadoData) {
             DashboardDTO.CitasEmpleadoDTO c = new DashboardDTO.CitasEmpleadoDTO();
             c.setIdEmpleado((Integer) row[0]);
             c.setNombreEmpleado((String) row[1]);
             c.setTotalCitas(((Number) row[2]).longValue());
-            c.setTotalServicios(0.0);
+            c.setTotalServicios(totalServiciosVal);
             citasPorEmpleado.add(c);
         }
 
@@ -106,7 +119,7 @@ public class DashboardService {
         double totalComision = 0.0;
         for (Empleado emp : empleados) {
             Double porcentaje = emp.getPorcentajeComision();
-            if (porcentaje != null && porcentaje > 0) {
+            if (porcentaje != null && porcentaje > 0 && emp.getStatus() == 1) {
                 totalComision += (totalServicios * porcentaje / 100.0);
             }
         }

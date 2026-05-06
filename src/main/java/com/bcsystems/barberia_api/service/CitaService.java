@@ -6,6 +6,7 @@ import com.bcsystems.barberia_api.domain.Cliente;
 import com.bcsystems.barberia_api.domain.Empleado;
 import com.bcsystems.barberia_api.domain.Servicio;
 import com.bcsystems.barberia_api.domain.Venta;
+import com.bcsystems.barberia_api.domain.VentaDetalle;
 import com.bcsystems.barberia_api.domain.en.EstadoCita;
 import com.bcsystems.barberia_api.dto.CitaDetailsDTO;
 import com.bcsystems.barberia_api.dto.CitaDTO;
@@ -82,7 +83,20 @@ public class CitaService {
         if (dto.getFechaFin() != null) {
             cita.setFechaFin(dto.getFechaFin());
         }
-        if (dto.getEstado() != null) {
+        
+        // Si la cita se marca como COMPLETADA, crear una venta automática con los servicios
+        boolean wasCompleted = "COMPLETADA".equals(cita.getEstado().name());
+        if (dto.getEstado() != null && !wasCompleted && "COMPLETADA".equals(dto.getEstado().name())) {
+            cita.setEstado(dto.getEstado());
+            // Guardar la cita primero
+            cita = citaRepository.save(cita);
+            // Verificar si ya existe una venta para esta cita antes de crear
+            List<Venta> ventasExistentes = ventaRepository.findByCitaIdCita(cita.getIdCita(), org.springframework.data.domain.Pageable.unpaged()).getContent();
+            if (ventasExistentes.isEmpty()) {
+                // Crear la venta automáticamente con los servicios de la cita
+                crearVentaDesdeCita(cita);
+            }
+        } else if (dto.getEstado() != null) {
             cita.setEstado(dto.getEstado());
         }
 
@@ -102,6 +116,40 @@ public class CitaService {
         }
 
         return toDTO(citaRepository.save(cita));
+    }
+    
+    private void crearVentaDesdeCita(Cita cita) {
+        // Verificar si ya existe una venta para esta cita
+        List<Venta> ventasExistentes = ventaRepository.findByCitaIdCita(cita.getIdCita(), org.springframework.data.domain.Pageable.unpaged()).getContent();
+        if (!ventasExistentes.isEmpty()) {
+            return; // Ya tiene una venta asociada
+        }
+        
+        // Crear la venta con los servicios de la cita
+        Venta venta = new Venta();
+        venta.setCita(cita);
+        
+        List<VentaDetalle> detalles = new ArrayList<>();
+        if (cita.getDetalles() != null && !cita.getDetalles().isEmpty()) {
+            for (CitaDetails citaDetail : cita.getDetalles()) {
+                VentaDetalle vd = new VentaDetalle();
+                vd.setVenta(venta);
+                vd.setServicio(citaDetail.getServicio());
+                vd.setCantidad(1);
+                vd.setPrecio(citaDetail.getPrecio());
+                vd.setComisionPagada(false);
+                detalles.add(vd);
+            }
+        }
+        venta.setDetalles(detalles);
+        
+        // Calcular total
+        double total = detalles.stream()
+                .mapToDouble(d -> d.getPrecio() * (d.getCantidad() != null ? d.getCantidad() : 1))
+                .sum();
+        venta.setTotal(total);
+        
+        ventaRepository.save(venta);
     }
 
     @Transactional

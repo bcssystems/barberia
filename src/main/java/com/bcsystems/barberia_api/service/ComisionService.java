@@ -6,11 +6,13 @@ import com.bcsystems.barberia_api.domain.PagoComision;
 import com.bcsystems.barberia_api.domain.Venta;
 import com.bcsystems.barberia_api.domain.VentaDetalle;
 import com.bcsystems.barberia_api.domain.en.EstadoPago;
+import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.dto.CorteComisionDTO;
 import com.bcsystems.barberia_api.dto.PagoComisionDTO;
 import com.bcsystems.barberia_api.dto.ResumenComisionEmpleadoDTO;
 import com.bcsystems.barberia_api.repository.CitaRepository;
 import com.bcsystems.barberia_api.repository.EmpleadoRepository;
+import com.bcsystems.barberia_api.repository.MovimientoInventarioRepository;
 import com.bcsystems.barberia_api.repository.PagoComisionRepository;
 import com.bcsystems.barberia_api.repository.VentaDetalleRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
@@ -34,17 +36,20 @@ public class ComisionService {
     private final VentaRepository ventaRepository;
     private final VentaDetalleRepository ventaDetalleRepository;
     private final CitaRepository citaRepository;
+    private final MovimientoInventarioRepository movimientoInventarioRepository;
 
     public ComisionService(PagoComisionRepository pagoComisionRepository,
                            EmpleadoRepository empleadoRepository,
                            VentaRepository ventaRepository,
                            VentaDetalleRepository ventaDetalleRepository,
-                           CitaRepository citaRepository) {
+                           CitaRepository citaRepository,
+                           MovimientoInventarioRepository movimientoInventarioRepository) {
         this.pagoComisionRepository = pagoComisionRepository;
         this.empleadoRepository = empleadoRepository;
         this.ventaRepository = ventaRepository;
         this.ventaDetalleRepository = ventaDetalleRepository;
         this.citaRepository = citaRepository;
+        this.movimientoInventarioRepository = movimientoInventarioRepository;
     }
 
     @Transactional(readOnly = true)
@@ -152,6 +157,118 @@ public class ComisionService {
             totalPagadas += monto;
         }
         corte.setTotalComisionesPagadas(totalPagadas);
+
+        return corte;
+    }
+
+    @Transactional(readOnly = true)
+    public CorteCompletoDTO generarCorteCompleto(LocalDateTime fechaInicio, LocalDateTime fechaFin) {
+        CorteCompletoDTO corte = new CorteCompletoDTO();
+        corte.setFechaInicio(fechaInicio);
+        corte.setFechaFin(fechaFin);
+
+        // Obtener todas las ventas en el periodo
+        List<Venta> ventasEnPeriodo = ventaRepository.findAllByFechaBetween(fechaInicio, fechaFin);
+
+        // Calcular ventas de servicios y productos
+        Double totalVentasServicios = ventaDetalleRepository.sumServiciosByFechaBetween(fechaInicio, fechaFin);
+        Double totalVentasProductos = ventaDetalleRepository.sumTotalProductosByFechaBetween(fechaInicio, fechaFin);
+        totalVentasServicios = totalVentasServicios != null ? totalVentasServicios : 0.0;
+        totalVentasProductos = totalVentasProductos != null ? totalVentasProductos : 0.0;
+
+        corte.setTotalVentasServicios(totalVentasServicios);
+        corte.setTotalVentasProductos(totalVentasProductos);
+        corte.setTotalVentas(totalVentasServicios + totalVentasProductos);
+
+        // Calcular costo de productos vendidos (precio de compra)
+        Double costoProductosVendidos = ventaDetalleRepository.sumCostoProductosByFechaBetween(fechaInicio, fechaFin);
+        costoProductosVendidos = costoProductosVendidos != null ? costoProductosVendidos : 0.0;
+        corte.setCostoProductosVendidos(costoProductosVendidos);
+
+        // Calcular gastos de inventario (entradas de mercancía nueva)
+        Double gastosInventario = movimientoInventarioRepository.sumComprasByFechaBetween(fechaInicio, fechaFin);
+        gastosInventario = gastosInventario != null ? gastosInventario : 0.0;
+        corte.setGastosInventario(gastosInventario);
+
+        Double totalCostos = costoProductosVendidos + gastosInventario;
+        corte.setTotalCostos(totalCostos);
+
+        // Utilidad bruta
+        Double utilidadBruta = (totalVentasServicios + totalVentasProductos) - totalCostos;
+        corte.setUtilidadBruta(utilidadBruta);
+
+        // Calcular comisiones por empleado
+        List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
+        Map<Integer, Double> ventasPorEmpleado = new HashMap<>();
+        Map<Integer, Double> comisionesPagadasPorEmpleado = new HashMap<>();
+
+        for (PagoComision pc : pagoComisionRepository.findByEstadoAndDeletedFalse(EstadoPago.PAGADA)) {
+            if (pc.getEmpleado() != null && pc.getFechaCorteInicio() != null && pc.getFechaCorteFin() != null) {
+                if (!pc.getFechaCorteInicio().isBefore(fechaInicio) && !pc.getFechaCorteFin().isAfter(fechaFin)) {
+                    int empId = pc.getEmpleado().getIdEmpleado();
+                    double monto = pc.getMontoComision() != null ? pc.getMontoComision() : 0;
+                    comisionesPagadasPorEmpleado.merge(empId, monto, Double::sum);
+                }
+            }
+        }
+
+        for (VentaDetalle vd : todosDetalles) {
+            if (vd.getServicio() == null) continue;
+            if (vd.getVenta() == null) continue;
+            if (vd.getComisionPagada() != null && vd.getComisionPagada()) continue;
+
+            Venta venta = vd.getVenta();
+            if (venta.getCita() == null) continue;
+
+            Cita cita = venta.getCita();
+            if (!"COMPLETADA".equals(cita.getEstado().name())) continue;
+            if (cita.getEmpleado() == null) continue;
+
+            LocalDateTime fechaVenta = venta.getFecha();
+            if (fechaVenta != null && (fechaVenta.isBefore(fechaInicio) || fechaVenta.isAfter(fechaFin))) continue;
+
+            int empId = cita.getEmpleado().getIdEmpleado();
+            double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
+            ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+        }
+
+        List<Empleado> empleados = empleadoRepository.findAll();
+        List<ResumenComisionEmpleadoDTO> resumenList = new ArrayList<>();
+        double totalComisionesPendientes = 0;
+
+        for (Empleado emp : empleados) {
+            if (emp.getStatus() != 1) continue;
+
+            Double totalVentas = ventasPorEmpleado.get(emp.getIdEmpleado());
+            if (totalVentas == null || totalVentas == 0) continue;
+
+            Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
+            Double montoComision = totalVentas * (porcentaje / 100.0);
+
+            totalComisionesPendientes += montoComision;
+
+            ResumenComisionEmpleadoDTO resumen = new ResumenComisionEmpleadoDTO();
+            resumen.setIdEmpleado(emp.getIdEmpleado());
+            resumen.setNombreEmpleado(emp.getNombre());
+            resumen.setTotalVentasServicios(totalVentas);
+            resumen.setPorcentajeComision(porcentaje);
+            resumen.setMontoComision(montoComision);
+            resumen.setTienePagoPendiente(true);
+            resumenList.add(resumen);
+        }
+
+        corte.setComisionesPorEmpleado(resumenList);
+        corte.setTotalComisionesPendientes(totalComisionesPendientes);
+
+        double totalPagadas = 0;
+        for (Double monto : comisionesPagadasPorEmpleado.values()) {
+            totalPagadas += monto;
+        }
+        corte.setTotalComisionesPagadas(totalPagadas);
+
+        // Utilidad neta (después de comisiones)
+        Double utilidadNeta = utilidadBruta - totalComisionesPendientes - totalPagadas;
+        corte.setUtilidadNeta(utilidadNeta);
 
         return corte;
     }
