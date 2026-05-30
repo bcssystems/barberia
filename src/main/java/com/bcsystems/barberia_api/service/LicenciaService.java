@@ -13,7 +13,7 @@ import java.util.Map;
 @Service
 public class LicenciaService {
 
-    private final String URL = "http://verificacion.smarttech.icu/validar";
+    private final String URL = "https://verificacion.smarttech.icu/validar";
 
     public boolean validarLicencia(String clienteId){
         RestTemplate restTemplate = new RestTemplate();
@@ -44,7 +44,7 @@ public class LicenciaService {
 
         try {
             restTemplate.postForEntity(
-                    "http://verificacion.smarttech.icu/registrar",
+                    "https://verificacion.smarttech.icu/registrar",
                     body,
                     String.class
             );
