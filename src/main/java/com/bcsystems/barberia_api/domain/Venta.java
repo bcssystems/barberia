@@ -26,6 +26,7 @@ public class Venta {
     private Cita cita;
     private LocalDateTime fecha = LocalDateTime.now();
     private Double total;
+    private LocalDateTime fechaCorte;
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VentaDetalle> detalles = new ArrayList<>();
 

@@ -82,6 +82,7 @@ public class MovimientoInventarioService {
         dto.setTipoMovimiento(movimiento.getTipoMovimiento());
         dto.setFecha(movimiento.getFecha());
         dto.setMotivo(movimiento.getMotivo());
+        dto.setPagoCaja(movimiento.getPagoCaja());
         return dto;
     }
 
@@ -96,6 +97,7 @@ public class MovimientoInventarioService {
         movimiento.setCantidad(dto.getCantidad());
         movimiento.setTipoMovimiento(dto.getTipoMovimiento());
         movimiento.setMotivo(dto.getMotivo());
+        movimiento.setPagoCaja(dto.getPagoCaja() != null ? dto.getPagoCaja() : false);
         return movimiento;
     }
 }

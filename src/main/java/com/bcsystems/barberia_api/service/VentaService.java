@@ -134,6 +134,8 @@ public class VentaService {
         VentaDTO dto = new VentaDTO();
         dto.setIdVenta(venta.getIdVenta());
         dto.setIdCita(venta.getCita() != null ? venta.getCita().getIdCita() : null);
+        dto.setNombreCliente(venta.getCita() != null && venta.getCita().getCliente() != null ? venta.getCita().getCliente().getNombre() : null);
+        dto.setNombreEmpleado(venta.getCita() != null && venta.getCita().getEmpleado() != null ? venta.getCita().getEmpleado().getNombre() : null);
         dto.setFecha(venta.getFecha());
         dto.setTotal(venta.getTotal());
         dto.setDetalles(detallesDTO);

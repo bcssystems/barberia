@@ -31,6 +31,9 @@ public class ServicioService {
 
     @Transactional
     public ServicioDTO save(ServicioDTO dto) {
+        if (servicioRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un servicio con ese nombre");
+        }
         Servicio servicio = toEntity(dto);
         Servicio saved = servicioRepository.save(servicio);
         return toDTO(saved);
@@ -40,6 +43,9 @@ public class ServicioService {
     public ServicioDTO update(Integer id, ServicioDTO dto) {
         Servicio servicio = servicioRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
+        if (!servicio.getNombre().equalsIgnoreCase(dto.getNombre()) && servicioRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un servicio con ese nombre");
+        }
         servicio.setNombre(dto.getNombre());
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setDuracionMinutos(dto.getDuracionMinutos());

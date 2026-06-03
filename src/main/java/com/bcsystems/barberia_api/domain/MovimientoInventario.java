@@ -28,5 +28,7 @@ public class MovimientoInventario {
     private TipoMovimiento tipoMovimiento;
     private LocalDateTime fecha = LocalDateTime.now();
     private String motivo;
+    private Boolean pagoCaja = false;
+    private LocalDateTime fechaCorte;
 
 }

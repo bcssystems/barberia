@@ -21,6 +21,7 @@ public class MovimientoInventarioDTO {
     private TipoMovimiento tipoMovimiento;
     private LocalDateTime fecha;
     private String motivo;
+    private Boolean pagoCaja;
 
     @JsonIgnore
     public Integer getId() {

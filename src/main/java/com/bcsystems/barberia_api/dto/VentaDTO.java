@@ -16,6 +16,8 @@ import java.util.List;
 public class VentaDTO {
     private Integer idVenta;
     private Integer idCita;
+    private String nombreCliente;
+    private String nombreEmpleado;
     private LocalDateTime fecha;
     private Double total;
     private List<VentaDetalleDTO> detalles;

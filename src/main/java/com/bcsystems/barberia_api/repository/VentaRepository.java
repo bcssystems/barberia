@@ -20,8 +20,14 @@ public interface VentaRepository extends JpaRepository<Venta, Integer> {
     
     @Query("SELECT v FROM Venta v WHERE v.fecha BETWEEN :start AND :end")
     List<Venta> findAllByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT v FROM Venta v WHERE v.fecha BETWEEN :start AND :end AND v.fechaCorte IS NULL")
+    List<Venta> findAllByFechaBetweenAndFechaCorteIsNull(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT v FROM Venta v WHERE v.fecha BETWEEN :start AND :end AND v.fechaCorte IS NOT NULL AND v.fechaCorte = :fechaCorte")
+    List<Venta> findAllByFechaBetweenAndFechaCorte(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end, @Param("fechaCorte") LocalDateTime fechaCorte);
     
-    @Query("SELECT SUM(v.total) FROM Venta v WHERE v.fecha BETWEEN :start AND :end")
+    @Query("SELECT SUM(v.total) FROM Venta v WHERE v.fecha BETWEEN :start AND :end AND v.fechaCorte IS NULL")
     Double sumTotalByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT SUM(vd.cantidad) FROM VentaDetalle vd WHERE vd.producto.idProducto = :idProducto AND vd.venta.fecha BETWEEN :start AND :end")

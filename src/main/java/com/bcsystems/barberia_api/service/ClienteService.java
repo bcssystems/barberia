@@ -31,6 +31,12 @@ public class ClienteService {
 
     @Transactional
     public ClienteDTO save(ClienteDTO dto) {
+        if (clienteRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un cliente con ese nombre");
+        }
+        if (clienteRepository.existsByTelefono(dto.getTelefono())) {
+            throw new RuntimeException("Ya existe un cliente con ese teléfono");
+        }
         Cliente cliente = toEntity(dto);
         Cliente saved = clienteRepository.save(cliente);
         return toDTO(saved);
@@ -40,6 +46,12 @@ public class ClienteService {
     public ClienteDTO update(Integer id, ClienteDTO dto) {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+        if (!cliente.getNombre().equalsIgnoreCase(dto.getNombre()) && clienteRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un cliente con ese nombre");
+        }
+        if (!cliente.getTelefono().equals(dto.getTelefono()) && clienteRepository.existsByTelefono(dto.getTelefono())) {
+            throw new RuntimeException("Ya existe un cliente con ese teléfono");
+        }
         cliente.setNombre(dto.getNombre());
         cliente.setTelefono(dto.getTelefono());
         return toDTO(clienteRepository.save(cliente));

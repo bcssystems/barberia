@@ -37,6 +37,9 @@ public class ProductoService {
 
     @Transactional
     public ProductoDTO save(ProductoDTO dto) {
+        if (productoRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un producto con ese nombre");
+        }
         Producto producto = toEntity(dto);
         Producto saved = productoRepository.save(producto);
         
@@ -47,6 +50,7 @@ public class ProductoService {
             movimiento.setTipoMovimiento(TipoMovimiento.ENTRADA);
             movimiento.setFecha(LocalDateTime.now());
             movimiento.setMotivo("Stock inicial");
+            movimiento.setPagoCaja(dto.getPagoCaja() != null ? dto.getPagoCaja() : false);
             movimientoRepository.save(movimiento);
         }
         
@@ -57,6 +61,9 @@ public class ProductoService {
     public ProductoDTO update(Integer id, ProductoDTO dto) {
         Producto producto = productoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+        if (!producto.getNombre().equalsIgnoreCase(dto.getNombre()) && productoRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un producto con ese nombre");
+        }
         producto.setNombre(dto.getNombre());
         producto.setDescripcion(dto.getDescripcion());
         producto.setPrecioCompra(dto.getPrecioCompra());
@@ -81,7 +88,8 @@ public class ProductoService {
                 producto.getPrecioCompra(),
                 producto.getPrecioVenta(),
                 producto.getStock(),
-                producto.getStatus()
+                producto.getStatus(),
+                null // pagoCaja no se almacena en Producto, solo en MovimientoInventario
         );
     }
 

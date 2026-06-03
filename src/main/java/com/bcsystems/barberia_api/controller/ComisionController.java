@@ -53,14 +53,22 @@ public class ComisionController {
     public ResponseEntity<CorteComisionDTO> generarCorte(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
-        return ResponseEntity.ok(comisionService.generarCorte(inicio, fin));
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(comisionService.generarCorte(inicio, fin));
     }
 
     @GetMapping("/corte-completo")
     public ResponseEntity<CorteCompletoDTO> generarCorteCompleto(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fin) {
-        return ResponseEntity.ok(comisionService.generarCorteCompleto(inicio, fin));
+        return ResponseEntity.ok()
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
+                .body(comisionService.generarCorteCompleto(inicio, fin));
     }
 
     @PostMapping("/pagar")

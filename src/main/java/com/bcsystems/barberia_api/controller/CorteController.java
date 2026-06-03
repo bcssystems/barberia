@@ -33,6 +33,15 @@ public class CorteController {
         return ResponseEntity.ok(corteService.findById(id));
     }
 
+    @GetMapping("/ultimo")
+    public ResponseEntity<?> findUltimo() {
+        Corte corte = corteService.findUltimoActivo();
+        if (corte == null) {
+            return ResponseEntity.ok(java.util.Map.of("message", "No hay cortes previos"));
+        }
+        return ResponseEntity.ok(corte);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelarCorte(@PathVariable Integer id) {
         corteService.cancelarCorte(id);

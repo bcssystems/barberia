@@ -94,22 +94,14 @@ public class ComisionService {
         List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
 
         Map<Integer, Double> ventasPorEmpleado = new HashMap<>();
-        Map<Integer, Double> comisionesPagadasPorEmpleado = new HashMap<>();
-
-        for (PagoComision pc : pagoComisionRepository.findByEstadoAndDeletedFalse(EstadoPago.PAGADA)) {
-            if (pc.getEmpleado() != null) {
-                int empId = pc.getEmpleado().getIdEmpleado();
-                double monto = pc.getMontoComision() != null ? pc.getMontoComision() : 0;
-                comisionesPagadasPorEmpleado.merge(empId, monto, Double::sum);
-            }
-        }
+        Map<Integer, Double> ventasPagadasPorEmpleado = new HashMap<>();
 
         for (VentaDetalle vd : todosDetalles) {
             if (vd.getServicio() == null) continue;
             if (vd.getVenta() == null) continue;
-            if (vd.getComisionPagada() != null && vd.getComisionPagada()) continue;
 
             Venta venta = vd.getVenta();
+            if (venta.getFechaCorte() != null) continue;
             if (venta.getCita() == null) continue;
 
             Cita cita = venta.getCita();
@@ -121,41 +113,51 @@ public class ComisionService {
 
             int empId = cita.getEmpleado().getIdEmpleado();
             double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
-            ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+
+            if (vd.getComisionPagada() != null && vd.getComisionPagada()) {
+                ventasPagadasPorEmpleado.merge(empId, subtotal, Double::sum);
+            } else {
+                ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+            }
         }
 
         List<Empleado> empleados = empleadoRepository.findAll();
         List<ResumenComisionEmpleadoDTO> resumenList = new ArrayList<>();
         double totalComisionesPendientes = 0;
+        double totalPagadas = 0;
 
         for (Empleado emp : empleados) {
             if (emp.getStatus() != 1) continue;
 
-            Double totalVentas = ventasPorEmpleado.get(emp.getIdEmpleado());
-            if (totalVentas == null || totalVentas == 0) continue;
-
             Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
-            Double montoComision = totalVentas * (porcentaje / 100.0);
 
-            totalComisionesPendientes += montoComision;
+            Double totalVentasPendientes = ventasPorEmpleado.get(emp.getIdEmpleado());
+            Double totalVentasPagadas = ventasPagadasPorEmpleado.get(emp.getIdEmpleado());
+            boolean tienePendiente = totalVentasPendientes != null && totalVentasPendientes > 0;
+            boolean tienePagado = totalVentasPagadas != null && totalVentasPagadas > 0;
+
+            if (!tienePendiente && !tienePagado) continue;
+
+            Double totalServicios = (totalVentasPendientes != null ? totalVentasPendientes : 0)
+                                  + (totalVentasPagadas != null ? totalVentasPagadas : 0);
+            Double montoComisionPendiente = tienePendiente ? totalVentasPendientes * (porcentaje / 100.0) : 0;
+            Double montoComisionPagado = tienePagado ? totalVentasPagadas * (porcentaje / 100.0) : 0;
+
+            totalComisionesPendientes += montoComisionPendiente;
+            totalPagadas += montoComisionPagado;
 
             ResumenComisionEmpleadoDTO resumen = new ResumenComisionEmpleadoDTO();
             resumen.setIdEmpleado(emp.getIdEmpleado());
             resumen.setNombreEmpleado(emp.getNombre());
-            resumen.setTotalVentasServicios(totalVentas);
+            resumen.setTotalVentasServicios(totalServicios);
             resumen.setPorcentajeComision(porcentaje);
-            resumen.setMontoComision(montoComision);
-            resumen.setTienePagoPendiente(true);
+            resumen.setMontoComision(montoComisionPendiente + montoComisionPagado);
+            resumen.setTienePagoPendiente(tienePendiente);
             resumenList.add(resumen);
         }
 
         corte.setComisionesPorEmpleado(resumenList);
         corte.setTotalComisionesPendientes(totalComisionesPendientes);
-
-        double totalPagadas = 0;
-        for (Double monto : comisionesPagadasPorEmpleado.values()) {
-            totalPagadas += monto;
-        }
         corte.setTotalComisionesPagadas(totalPagadas);
 
         return corte;
@@ -166,9 +168,6 @@ public class ComisionService {
         CorteCompletoDTO corte = new CorteCompletoDTO();
         corte.setFechaInicio(fechaInicio);
         corte.setFechaFin(fechaFin);
-
-        // Obtener todas las ventas en el periodo
-        List<Venta> ventasEnPeriodo = ventaRepository.findAllByFechaBetween(fechaInicio, fechaFin);
 
         // Calcular ventas de servicios y productos
         Double totalVentasServicios = ventaDetalleRepository.sumServiciosByFechaBetween(fechaInicio, fechaFin);
@@ -197,27 +196,17 @@ public class ComisionService {
         Double utilidadBruta = (totalVentasServicios + totalVentasProductos) - totalCostos;
         corte.setUtilidadBruta(utilidadBruta);
 
-        // Calcular comisiones por empleado
+        // Calcular comisiones por empleado desde detalles de venta no cortados
         List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
         Map<Integer, Double> ventasPorEmpleado = new HashMap<>();
-        Map<Integer, Double> comisionesPagadasPorEmpleado = new HashMap<>();
-
-        for (PagoComision pc : pagoComisionRepository.findByEstadoAndDeletedFalse(EstadoPago.PAGADA)) {
-            if (pc.getEmpleado() != null && pc.getFechaCorteInicio() != null && pc.getFechaCorteFin() != null) {
-                if (!pc.getFechaCorteInicio().isBefore(fechaInicio) && !pc.getFechaCorteFin().isAfter(fechaFin)) {
-                    int empId = pc.getEmpleado().getIdEmpleado();
-                    double monto = pc.getMontoComision() != null ? pc.getMontoComision() : 0;
-                    comisionesPagadasPorEmpleado.merge(empId, monto, Double::sum);
-                }
-            }
-        }
+        Map<Integer, Double> ventasPagadasPorEmpleado = new HashMap<>();
 
         for (VentaDetalle vd : todosDetalles) {
             if (vd.getServicio() == null) continue;
             if (vd.getVenta() == null) continue;
-            if (vd.getComisionPagada() != null && vd.getComisionPagada()) continue;
 
             Venta venta = vd.getVenta();
+            if (venta.getFechaCorte() != null) continue;
             if (venta.getCita() == null) continue;
 
             Cita cita = venta.getCita();
@@ -229,41 +218,51 @@ public class ComisionService {
 
             int empId = cita.getEmpleado().getIdEmpleado();
             double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
-            ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+
+            if (vd.getComisionPagada() != null && vd.getComisionPagada()) {
+                ventasPagadasPorEmpleado.merge(empId, subtotal, Double::sum);
+            } else {
+                ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+            }
         }
 
         List<Empleado> empleados = empleadoRepository.findAll();
         List<ResumenComisionEmpleadoDTO> resumenList = new ArrayList<>();
         double totalComisionesPendientes = 0;
+        double totalPagadas = 0;
 
         for (Empleado emp : empleados) {
             if (emp.getStatus() != 1) continue;
 
-            Double totalVentas = ventasPorEmpleado.get(emp.getIdEmpleado());
-            if (totalVentas == null || totalVentas == 0) continue;
-
             Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
-            Double montoComision = totalVentas * (porcentaje / 100.0);
 
-            totalComisionesPendientes += montoComision;
+            Double totalVentasPendientes = ventasPorEmpleado.get(emp.getIdEmpleado());
+            Double totalVentasPagadas = ventasPagadasPorEmpleado.get(emp.getIdEmpleado());
+            boolean tienePendiente = totalVentasPendientes != null && totalVentasPendientes > 0;
+            boolean tienePagado = totalVentasPagadas != null && totalVentasPagadas > 0;
+
+            if (!tienePendiente && !tienePagado) continue;
+
+            Double totalServicios = (totalVentasPendientes != null ? totalVentasPendientes : 0)
+                                  + (totalVentasPagadas != null ? totalVentasPagadas : 0);
+            Double montoComisionPendiente = tienePendiente ? totalVentasPendientes * (porcentaje / 100.0) : 0;
+            Double montoComisionPagado = tienePagado ? totalVentasPagadas * (porcentaje / 100.0) : 0;
+
+            totalComisionesPendientes += montoComisionPendiente;
+            totalPagadas += montoComisionPagado;
 
             ResumenComisionEmpleadoDTO resumen = new ResumenComisionEmpleadoDTO();
             resumen.setIdEmpleado(emp.getIdEmpleado());
             resumen.setNombreEmpleado(emp.getNombre());
-            resumen.setTotalVentasServicios(totalVentas);
+            resumen.setTotalVentasServicios(totalServicios);
             resumen.setPorcentajeComision(porcentaje);
-            resumen.setMontoComision(montoComision);
-            resumen.setTienePagoPendiente(true);
+            resumen.setMontoComision(montoComisionPendiente + montoComisionPagado);
+            resumen.setTienePagoPendiente(tienePendiente);
             resumenList.add(resumen);
         }
 
         corte.setComisionesPorEmpleado(resumenList);
         corte.setTotalComisionesPendientes(totalComisionesPendientes);
-
-        double totalPagadas = 0;
-        for (Double monto : comisionesPagadasPorEmpleado.values()) {
-            totalPagadas += monto;
-        }
         corte.setTotalComisionesPagadas(totalPagadas);
 
         // Utilidad neta (después de comisiones)

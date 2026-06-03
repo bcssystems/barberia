@@ -31,6 +31,12 @@ public class EmpleadoService {
 
     @Transactional
     public EmpleadoDTO save(EmpleadoDTO dto) {
+        if (empleadoRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un empleado con ese nombre");
+        }
+        if (empleadoRepository.existsByTelefono(dto.getTelefono())) {
+            throw new RuntimeException("Ya existe un empleado con ese teléfono");
+        }
         Empleado empleado = toEntity(dto);
         Empleado saved = empleadoRepository.save(empleado);
         return toDTO(saved);
@@ -40,6 +46,12 @@ public class EmpleadoService {
     public EmpleadoDTO update(Integer id, EmpleadoDTO dto) {
         Empleado empleado = empleadoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+        if (!empleado.getNombre().equalsIgnoreCase(dto.getNombre()) && empleadoRepository.existsByNombre(dto.getNombre())) {
+            throw new RuntimeException("Ya existe un empleado con ese nombre");
+        }
+        if (!empleado.getTelefono().equals(dto.getTelefono()) && empleadoRepository.existsByTelefono(dto.getTelefono())) {
+            throw new RuntimeException("Ya existe un empleado con ese teléfono");
+        }
         empleado.setNombre(dto.getNombre());
         empleado.setTelefono(dto.getTelefono());
         empleado.setPorcentajeComision(dto.getPorcentajeComision());

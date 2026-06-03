@@ -18,6 +18,7 @@ public class ProductoDTO {
     private Double precioVenta;
     private Integer stock;
     private Integer status;
+    private Boolean pagoCaja;
 
     @JsonIgnore
     public Integer getId() {
