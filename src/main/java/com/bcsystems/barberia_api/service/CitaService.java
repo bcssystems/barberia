@@ -15,6 +15,7 @@ import com.bcsystems.barberia_api.repository.ClienteRepository;
 import com.bcsystems.barberia_api.repository.EmpleadoRepository;
 import com.bcsystems.barberia_api.repository.ServicioRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
+import com.bcsystems.barberia_api.service.WhatsAppService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,15 +34,17 @@ public class CitaService {
     private final EmpleadoRepository empleadoRepository;
     private final ServicioRepository servicioRepository;
     private final VentaRepository ventaRepository;
+    private final WhatsAppService whatsAppService;
 
     public CitaService(CitaRepository citaRepository, ClienteRepository clienteRepository,
                        EmpleadoRepository empleadoRepository, ServicioRepository servicioRepository,
-                       VentaRepository ventaRepository) {
+                       VentaRepository ventaRepository, WhatsAppService whatsAppService) {
         this.citaRepository = citaRepository;
         this.clienteRepository = clienteRepository;
         this.empleadoRepository = empleadoRepository;
         this.servicioRepository = servicioRepository;
         this.ventaRepository = ventaRepository;
+        this.whatsAppService = whatsAppService;
     }
 
     @Transactional(readOnly = true)
@@ -59,7 +62,39 @@ public class CitaService {
         Cita cita = toEntity(dto);
         System.out.println("Detalles: " + dto.getDetalles());
         Cita saved = citaRepository.save(cita);
+        enviarConfirmacionWhatsApp(saved);
         return toDTO(saved);
+    }
+
+    private void enviarConfirmacionWhatsApp(Cita cita) {
+        try {
+            Cliente cliente = cita.getCliente();
+            if (cliente == null || cliente.getTelefono() == null) return;
+
+            Empleado empleado = cita.getEmpleado();
+            List<String> servicios = new ArrayList<>();
+            double total = 0;
+            if (cita.getDetalles() != null) {
+                for (CitaDetails det : cita.getDetalles()) {
+                    if (det.getServicio() != null) {
+                        servicios.add(det.getServicio().getNombre());
+                    }
+                    total += det.getPrecio() != null ? det.getPrecio() : 0;
+                }
+            }
+
+            whatsAppService.sendAppointmentConfirmation(
+                cliente.getTelefono(),
+                cliente.getNombre(),
+                empleado != null ? empleado.getNombre() : "Barberia",
+                cita.getFechaInicio(),
+                cita.getFechaFin(),
+                servicios,
+                total
+            );
+        } catch (Exception e) {
+            System.err.println("Error al enviar confirmacion WhatsApp: " + e.getMessage());
+        }
     }
 
     @Transactional
