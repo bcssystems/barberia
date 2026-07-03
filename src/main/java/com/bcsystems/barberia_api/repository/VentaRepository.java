@@ -35,4 +35,6 @@ public interface VentaRepository extends JpaRepository<Venta, Integer> {
 
     @Query("SELECT SUM(vd.precio * vd.cantidad) FROM VentaDetalle vd WHERE vd.producto.idProducto = :idProducto AND vd.venta.fecha BETWEEN :start AND :end")
     Double sumTotalByProductoAndFechaBetween(@Param("idProducto") Integer idProducto, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    Page<Venta> findByCajaIdCaja(Integer idCaja, Pageable pageable);
 }

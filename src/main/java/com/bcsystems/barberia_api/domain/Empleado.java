@@ -21,7 +21,8 @@ public class Empleado {
     private String nombre;
     @Column(unique = true)
     private String telefono;
-    private Double porcentajeComision;
+    private Double sueldoBase = 0.0;
+    private Boolean cobraComision = true;
     private Integer status = 1;
 
 }

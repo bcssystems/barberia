@@ -19,6 +19,8 @@ public class Producto {
     private Integer idProducto;
     @Column(unique = true)
     private String nombre;
+    @Column(unique = true, nullable = false)
+    private String sku;
     private String descripcion;
     private Double precioCompra;
     private Double precioVenta;

@@ -1,9 +1,7 @@
 package com.bcsystems.barberia_api.service;
 
-import com.bcsystems.barberia_api.domain.Empleado;
 import com.bcsystems.barberia_api.dto.DashboardDTO;
 import com.bcsystems.barberia_api.repository.CitaRepository;
-import com.bcsystems.barberia_api.repository.EmpleadoRepository;
 import com.bcsystems.barberia_api.repository.MovimientoInventarioRepository;
 import com.bcsystems.barberia_api.repository.VentaDetalleRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
@@ -15,7 +13,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class DashboardService {
@@ -23,16 +20,14 @@ public class DashboardService {
     private final VentaRepository ventaRepository;
     private final CitaRepository citaRepository;
     private final VentaDetalleRepository ventaDetalleRepository;
-    private final EmpleadoRepository empleadoRepository;
     private final MovimientoInventarioRepository movimientoInventarioRepository;
 
     public DashboardService(VentaRepository ventaRepository, CitaRepository citaRepository,
-                             VentaDetalleRepository ventaDetalleRepository, EmpleadoRepository empleadoRepository,
+                             VentaDetalleRepository ventaDetalleRepository,
                              MovimientoInventarioRepository movimientoInventarioRepository) {
         this.ventaRepository = ventaRepository;
         this.citaRepository = citaRepository;
         this.ventaDetalleRepository = ventaDetalleRepository;
-        this.empleadoRepository = empleadoRepository;
         this.movimientoInventarioRepository = movimientoInventarioRepository;
     }
 
@@ -72,7 +67,7 @@ public class DashboardService {
         double utilidadBruta = (totalServiciosVal + totalProductosVal) - costoProductosVal;
         
         // Comisiones estimadas
-        double totalComisiones = calcularComisiones(totalServiciosVal);
+        double totalComisiones = calcularComisiones(inicioSemana, finDiaSemana);
         
         // Utilidad neta = Utilidad bruta - Comisiones - Gastos de inventario
         double gananciasNetas = utilidadBruta - totalComisiones - gastosInventarioVal;
@@ -114,15 +109,8 @@ public class DashboardService {
         return dto;
     }
 
-    private double calcularComisiones(double totalServicios) {
-        List<Empleado> empleados = empleadoRepository.findAll();
-        double totalComision = 0.0;
-        for (Empleado emp : empleados) {
-            Double porcentaje = emp.getPorcentajeComision();
-            if (porcentaje != null && porcentaje > 0 && emp.getStatus() == 1) {
-                totalComision += (totalServicios * porcentaje / 100.0);
-            }
-        }
-        return totalComision;
+    private double calcularComisiones(LocalDateTime inicio, LocalDateTime fin) {
+        Double total = ventaDetalleRepository.sumComisionesByFechaBetween(inicio, fin);
+        return total != null ? total : 0.0;
     }
 }

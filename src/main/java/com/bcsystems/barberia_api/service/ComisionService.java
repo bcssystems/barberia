@@ -3,17 +3,21 @@ package com.bcsystems.barberia_api.service;
 import com.bcsystems.barberia_api.domain.Cita;
 import com.bcsystems.barberia_api.domain.Empleado;
 import com.bcsystems.barberia_api.domain.PagoComision;
+import com.bcsystems.barberia_api.domain.Servicio;
 import com.bcsystems.barberia_api.domain.Venta;
 import com.bcsystems.barberia_api.domain.VentaDetalle;
 import com.bcsystems.barberia_api.domain.en.EstadoPago;
 import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.dto.CorteComisionDTO;
+import com.bcsystems.barberia_api.dto.DesgloseComisionDTO;
+import com.bcsystems.barberia_api.dto.DetalleComisionDTO;
 import com.bcsystems.barberia_api.dto.PagoComisionDTO;
 import com.bcsystems.barberia_api.dto.ResumenComisionEmpleadoDTO;
 import com.bcsystems.barberia_api.repository.CitaRepository;
 import com.bcsystems.barberia_api.repository.EmpleadoRepository;
 import com.bcsystems.barberia_api.repository.MovimientoInventarioRepository;
 import com.bcsystems.barberia_api.repository.PagoComisionRepository;
+import com.bcsystems.barberia_api.repository.ServicioRepository;
 import com.bcsystems.barberia_api.repository.VentaDetalleRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
 import org.springframework.data.domain.Page;
@@ -37,19 +41,22 @@ public class ComisionService {
     private final VentaDetalleRepository ventaDetalleRepository;
     private final CitaRepository citaRepository;
     private final MovimientoInventarioRepository movimientoInventarioRepository;
+    private final ServicioRepository servicioRepository;
 
     public ComisionService(PagoComisionRepository pagoComisionRepository,
                            EmpleadoRepository empleadoRepository,
                            VentaRepository ventaRepository,
                            VentaDetalleRepository ventaDetalleRepository,
                            CitaRepository citaRepository,
-                           MovimientoInventarioRepository movimientoInventarioRepository) {
+                           MovimientoInventarioRepository movimientoInventarioRepository,
+                           ServicioRepository servicioRepository) {
         this.pagoComisionRepository = pagoComisionRepository;
         this.empleadoRepository = empleadoRepository;
         this.ventaRepository = ventaRepository;
         this.ventaDetalleRepository = ventaDetalleRepository;
         this.citaRepository = citaRepository;
         this.movimientoInventarioRepository = movimientoInventarioRepository;
+        this.servicioRepository = servicioRepository;
     }
 
     @Transactional(readOnly = true)
@@ -68,7 +75,7 @@ public class ComisionService {
     public PagoComisionDTO findById(Integer id) {
         return pagoComisionRepository.findById(id)
                 .map(this::toDTO)
-                .orElseThrow(() -> new RuntimeException("Pago de comisión no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Pago de comision no encontrado"));
     }
 
     @Transactional(readOnly = true)
@@ -93,8 +100,8 @@ public class ComisionService {
 
         List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
 
-        Map<Integer, Double> ventasPorEmpleado = new HashMap<>();
-        Map<Integer, Double> ventasPagadasPorEmpleado = new HashMap<>();
+        Map<Integer, List<DetalleComisionDTO>> detallesPendientesPorEmp = new HashMap<>();
+        Map<Integer, List<DetalleComisionDTO>> detallesPagadosPorEmp = new HashMap<>();
 
         for (VentaDetalle vd : todosDetalles) {
             if (vd.getServicio() == null) continue;
@@ -112,12 +119,24 @@ public class ComisionService {
             if (fechaVenta != null && (fechaVenta.isBefore(fechaInicio) || fechaVenta.isAfter(fechaFin))) continue;
 
             int empId = cita.getEmpleado().getIdEmpleado();
-            double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
+            Servicio servicio = vd.getServicio();
+            int cantidad = vd.getCantidad() != null ? vd.getCantidad() : 1;
+            double comision = servicio.getComision() * cantidad;
+
+            DetalleComisionDTO detalle = new DetalleComisionDTO();
+            detalle.setIdVentaDetalle(vd.getIdVentaDetalle());
+            detalle.setIdVenta(venta.getIdVenta());
+            detalle.setIdServicio(servicio.getIdServicio());
+            detalle.setNombreServicio(servicio.getNombre());
+            detalle.setPrecioServicio(vd.getPrecio());
+            detalle.setMontoComision(comision);
+            detalle.setFechaVenta(fechaVenta);
+            detalle.setPagada(vd.getComisionPagada() != null && vd.getComisionPagada());
 
             if (vd.getComisionPagada() != null && vd.getComisionPagada()) {
-                ventasPagadasPorEmpleado.merge(empId, subtotal, Double::sum);
+                detallesPagadosPorEmp.computeIfAbsent(empId, k -> new ArrayList<>()).add(detalle);
             } else {
-                ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+                detallesPendientesPorEmp.computeIfAbsent(empId, k -> new ArrayList<>()).add(detalle);
             }
         }
 
@@ -128,31 +147,33 @@ public class ComisionService {
 
         for (Empleado emp : empleados) {
             if (emp.getStatus() != 1) continue;
+            if (emp.getCobraComision() == null || !emp.getCobraComision()) continue;
 
-            Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
+            List<DetalleComisionDTO> pendientes = detallesPendientesPorEmp.get(emp.getIdEmpleado());
+            List<DetalleComisionDTO> pagados = detallesPagadosPorEmp.get(emp.getIdEmpleado());
 
-            Double totalVentasPendientes = ventasPorEmpleado.get(emp.getIdEmpleado());
-            Double totalVentasPagadas = ventasPagadasPorEmpleado.get(emp.getIdEmpleado());
-            boolean tienePendiente = totalVentasPendientes != null && totalVentasPendientes > 0;
-            boolean tienePagado = totalVentasPagadas != null && totalVentasPagadas > 0;
+            double montoPendiente = pendientes != null ? pendientes.stream().mapToDouble(DetalleComisionDTO::getMontoComision).sum() : 0;
+            double montoPagado = pagados != null ? pagados.stream().mapToDouble(DetalleComisionDTO::getMontoComision).sum() : 0;
+            double totalServiciosVal = (pendientes != null ? pendientes.stream().mapToDouble(d -> d.getPrecioServicio()).sum() : 0)
+                                     + (pagados != null ? pagados.stream().mapToDouble(d -> d.getPrecioServicio()).sum() : 0);
 
-            if (!tienePendiente && !tienePagado) continue;
+            if (montoPendiente == 0 && montoPagado == 0) continue;
 
-            Double totalServicios = (totalVentasPendientes != null ? totalVentasPendientes : 0)
-                                  + (totalVentasPagadas != null ? totalVentasPagadas : 0);
-            Double montoComisionPendiente = tienePendiente ? totalVentasPendientes * (porcentaje / 100.0) : 0;
-            Double montoComisionPagado = tienePagado ? totalVentasPagadas * (porcentaje / 100.0) : 0;
-
-            totalComisionesPendientes += montoComisionPendiente;
-            totalPagadas += montoComisionPagado;
+            totalComisionesPendientes += montoPendiente;
+            totalPagadas += montoPagado;
 
             ResumenComisionEmpleadoDTO resumen = new ResumenComisionEmpleadoDTO();
             resumen.setIdEmpleado(emp.getIdEmpleado());
             resumen.setNombreEmpleado(emp.getNombre());
-            resumen.setTotalVentasServicios(totalServicios);
-            resumen.setPorcentajeComision(porcentaje);
-            resumen.setMontoComision(montoComisionPendiente + montoComisionPagado);
-            resumen.setTienePagoPendiente(tienePendiente);
+            resumen.setTotalVentasServicios(totalServiciosVal);
+            resumen.setMontoComision(montoPendiente + montoPagado);
+            resumen.setTienePagoPendiente(montoPendiente > 0);
+
+            List<DetalleComisionDTO> desglose = new ArrayList<>();
+            if (pendientes != null) desglose.addAll(pendientes);
+            if (pagados != null) desglose.addAll(pagados);
+            resumen.setDesglose(desglose);
+
             resumenList.add(resumen);
         }
 
@@ -169,7 +190,6 @@ public class ComisionService {
         corte.setFechaInicio(fechaInicio);
         corte.setFechaFin(fechaFin);
 
-        // Calcular ventas de servicios y productos
         Double totalVentasServicios = ventaDetalleRepository.sumServiciosByFechaBetween(fechaInicio, fechaFin);
         Double totalVentasProductos = ventaDetalleRepository.sumTotalProductosByFechaBetween(fechaInicio, fechaFin);
         totalVentasServicios = totalVentasServicios != null ? totalVentasServicios : 0.0;
@@ -179,12 +199,10 @@ public class ComisionService {
         corte.setTotalVentasProductos(totalVentasProductos);
         corte.setTotalVentas(totalVentasServicios + totalVentasProductos);
 
-        // Calcular costo de productos vendidos (precio de compra)
         Double costoProductosVendidos = ventaDetalleRepository.sumCostoProductosByFechaBetween(fechaInicio, fechaFin);
         costoProductosVendidos = costoProductosVendidos != null ? costoProductosVendidos : 0.0;
         corte.setCostoProductosVendidos(costoProductosVendidos);
 
-        // Calcular gastos de inventario (entradas de mercancía nueva)
         Double gastosInventario = movimientoInventarioRepository.sumComprasByFechaBetween(fechaInicio, fechaFin);
         gastosInventario = gastosInventario != null ? gastosInventario : 0.0;
         corte.setGastosInventario(gastosInventario);
@@ -192,14 +210,13 @@ public class ComisionService {
         Double totalCostos = costoProductosVendidos + gastosInventario;
         corte.setTotalCostos(totalCostos);
 
-        // Utilidad bruta
         Double utilidadBruta = (totalVentasServicios + totalVentasProductos) - totalCostos;
         corte.setUtilidadBruta(utilidadBruta);
 
-        // Calcular comisiones por empleado desde detalles de venta no cortados
         List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
-        Map<Integer, Double> ventasPorEmpleado = new HashMap<>();
-        Map<Integer, Double> ventasPagadasPorEmpleado = new HashMap<>();
+
+        Map<Integer, List<DetalleComisionDTO>> detallesPendientesPorEmp = new HashMap<>();
+        Map<Integer, List<DetalleComisionDTO>> detallesPagadosPorEmp = new HashMap<>();
 
         for (VentaDetalle vd : todosDetalles) {
             if (vd.getServicio() == null) continue;
@@ -217,12 +234,24 @@ public class ComisionService {
             if (fechaVenta != null && (fechaVenta.isBefore(fechaInicio) || fechaVenta.isAfter(fechaFin))) continue;
 
             int empId = cita.getEmpleado().getIdEmpleado();
-            double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
+            Servicio servicio = vd.getServicio();
+            int cantidad = vd.getCantidad() != null ? vd.getCantidad() : 1;
+            double comision = servicio.getComision() * cantidad;
+
+            DetalleComisionDTO detalle = new DetalleComisionDTO();
+            detalle.setIdVentaDetalle(vd.getIdVentaDetalle());
+            detalle.setIdVenta(venta.getIdVenta());
+            detalle.setIdServicio(servicio.getIdServicio());
+            detalle.setNombreServicio(servicio.getNombre());
+            detalle.setPrecioServicio(vd.getPrecio());
+            detalle.setMontoComision(comision);
+            detalle.setFechaVenta(fechaVenta);
+            detalle.setPagada(vd.getComisionPagada() != null && vd.getComisionPagada());
 
             if (vd.getComisionPagada() != null && vd.getComisionPagada()) {
-                ventasPagadasPorEmpleado.merge(empId, subtotal, Double::sum);
+                detallesPagadosPorEmp.computeIfAbsent(empId, k -> new ArrayList<>()).add(detalle);
             } else {
-                ventasPorEmpleado.merge(empId, subtotal, Double::sum);
+                detallesPendientesPorEmp.computeIfAbsent(empId, k -> new ArrayList<>()).add(detalle);
             }
         }
 
@@ -233,31 +262,33 @@ public class ComisionService {
 
         for (Empleado emp : empleados) {
             if (emp.getStatus() != 1) continue;
+            if (emp.getCobraComision() == null || !emp.getCobraComision()) continue;
 
-            Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
+            List<DetalleComisionDTO> pendientes = detallesPendientesPorEmp.get(emp.getIdEmpleado());
+            List<DetalleComisionDTO> pagados = detallesPagadosPorEmp.get(emp.getIdEmpleado());
 
-            Double totalVentasPendientes = ventasPorEmpleado.get(emp.getIdEmpleado());
-            Double totalVentasPagadas = ventasPagadasPorEmpleado.get(emp.getIdEmpleado());
-            boolean tienePendiente = totalVentasPendientes != null && totalVentasPendientes > 0;
-            boolean tienePagado = totalVentasPagadas != null && totalVentasPagadas > 0;
+            double montoPendiente = pendientes != null ? pendientes.stream().mapToDouble(DetalleComisionDTO::getMontoComision).sum() : 0;
+            double montoPagado = pagados != null ? pagados.stream().mapToDouble(DetalleComisionDTO::getMontoComision).sum() : 0;
+            double totalServiciosVal = (pendientes != null ? pendientes.stream().mapToDouble(d -> d.getPrecioServicio()).sum() : 0)
+                                     + (pagados != null ? pagados.stream().mapToDouble(d -> d.getPrecioServicio()).sum() : 0);
 
-            if (!tienePendiente && !tienePagado) continue;
+            if (montoPendiente == 0 && montoPagado == 0) continue;
 
-            Double totalServicios = (totalVentasPendientes != null ? totalVentasPendientes : 0)
-                                  + (totalVentasPagadas != null ? totalVentasPagadas : 0);
-            Double montoComisionPendiente = tienePendiente ? totalVentasPendientes * (porcentaje / 100.0) : 0;
-            Double montoComisionPagado = tienePagado ? totalVentasPagadas * (porcentaje / 100.0) : 0;
-
-            totalComisionesPendientes += montoComisionPendiente;
-            totalPagadas += montoComisionPagado;
+            totalComisionesPendientes += montoPendiente;
+            totalPagadas += montoPagado;
 
             ResumenComisionEmpleadoDTO resumen = new ResumenComisionEmpleadoDTO();
             resumen.setIdEmpleado(emp.getIdEmpleado());
             resumen.setNombreEmpleado(emp.getNombre());
-            resumen.setTotalVentasServicios(totalServicios);
-            resumen.setPorcentajeComision(porcentaje);
-            resumen.setMontoComision(montoComisionPendiente + montoComisionPagado);
-            resumen.setTienePagoPendiente(tienePendiente);
+            resumen.setTotalVentasServicios(totalServiciosVal);
+            resumen.setMontoComision(montoPendiente + montoPagado);
+            resumen.setTienePagoPendiente(montoPendiente > 0);
+
+            List<DetalleComisionDTO> desglose = new ArrayList<>();
+            if (pendientes != null) desglose.addAll(pendientes);
+            if (pagados != null) desglose.addAll(pagados);
+            resumen.setDesglose(desglose);
+
             resumenList.add(resumen);
         }
 
@@ -265,7 +296,6 @@ public class ComisionService {
         corte.setTotalComisionesPendientes(totalComisionesPendientes);
         corte.setTotalComisionesPagadas(totalPagadas);
 
-        // Utilidad neta (después de comisiones)
         Double utilidadNeta = utilidadBruta - totalComisionesPendientes - totalPagadas;
         corte.setUtilidadNeta(utilidadNeta);
 
@@ -280,8 +310,10 @@ public class ComisionService {
             Empleado emp = empleadoRepository.findById(idEmpleado)
                     .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
 
+            if (emp.getCobraComision() == null || !emp.getCobraComision()) continue;
+
             List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
-            double totalVentas = 0;
+            double totalComisionEmpleado = 0;
 
             for (VentaDetalle vd : todosDetalles) {
                 if (vd.getServicio() == null) continue;
@@ -299,21 +331,22 @@ public class ComisionService {
                 LocalDateTime fechaVenta = venta.getFecha();
                 if (fechaVenta != null && (fechaVenta.isBefore(fechaCorteInicio) || fechaVenta.isAfter(fechaCorteFin))) continue;
 
-                double subtotal = vd.getPrecio() * (vd.getCantidad() != null ? vd.getCantidad() : 1);
-                totalVentas += subtotal;
+                Servicio servicio = vd.getServicio();
+                int cantidad = vd.getCantidad() != null ? vd.getCantidad() : 1;
+                double comision = servicio.getComision() * cantidad;
 
+                vd.setMontoComision(servicio.getComision());
                 vd.setComisionPagada(true);
                 ventaDetalleRepository.save(vd);
+
+                totalComisionEmpleado += comision;
             }
 
-            if (totalVentas == 0) continue;
-
-            Double porcentaje = emp.getPorcentajeComision() != null ? emp.getPorcentajeComision() : 0;
-            Double montoComision = totalVentas * (porcentaje / 100.0);
+            if (totalComisionEmpleado == 0) continue;
 
             PagoComision pago = new PagoComision();
             pago.setEmpleado(emp);
-            pago.setMontoComision(montoComision);
+            pago.setMontoComision(totalComisionEmpleado);
             pago.setFechaCorteInicio(fechaCorteInicio);
             pago.setFechaCorteFin(fechaCorteFin);
             pago.setFechaPago(LocalDateTime.now());
@@ -321,7 +354,7 @@ public class ComisionService {
             pago.setDeleted(false);
 
             pagoComisionRepository.save(pago);
-            totalPagado += montoComision;
+            totalPagado += totalComisionEmpleado;
         }
 
         PagoComisionDTO result = new PagoComisionDTO();
@@ -330,10 +363,60 @@ public class ComisionService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public DesgloseComisionDTO generarDesglose(Integer idEmpleado, LocalDateTime fechaInicio, LocalDateTime fechaFin) {
+        Empleado emp = empleadoRepository.findById(idEmpleado)
+                .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+
+        List<VentaDetalle> todosDetalles = ventaDetalleRepository.findAll();
+        List<DetalleComisionDTO> detalles = new ArrayList<>();
+
+        for (VentaDetalle vd : todosDetalles) {
+            if (vd.getServicio() == null) continue;
+            if (vd.getVenta() == null) continue;
+
+            Venta venta = vd.getVenta();
+            if (venta.getCita() == null) continue;
+
+            Cita cita = venta.getCita();
+            if (cita.getEmpleado() == null) continue;
+            if (!cita.getEmpleado().getIdEmpleado().equals(idEmpleado)) continue;
+
+            LocalDateTime fechaVenta = venta.getFecha();
+            if (fechaVenta != null && (fechaVenta.isBefore(fechaInicio) || fechaVenta.isAfter(fechaFin))) continue;
+
+            Servicio servicio = vd.getServicio();
+            int cantidad = vd.getCantidad() != null ? vd.getCantidad() : 1;
+            double comision = servicio.getComision() * cantidad;
+
+            DetalleComisionDTO detalle = new DetalleComisionDTO();
+            detalle.setIdVentaDetalle(vd.getIdVentaDetalle());
+            detalle.setIdVenta(venta.getIdVenta());
+            detalle.setIdServicio(servicio.getIdServicio());
+            detalle.setNombreServicio(servicio.getNombre());
+            detalle.setPrecioServicio(vd.getPrecio());
+            detalle.setMontoComision(comision);
+            detalle.setFechaVenta(fechaVenta);
+            detalle.setPagada(vd.getComisionPagada() != null && vd.getComisionPagada());
+
+            detalles.add(detalle);
+        }
+
+        double totalComision = detalles.stream().mapToDouble(DetalleComisionDTO::getMontoComision).sum();
+
+        DesgloseComisionDTO desglose = new DesgloseComisionDTO();
+        desglose.setIdEmpleado(emp.getIdEmpleado());
+        desglose.setNombreEmpleado(emp.getNombre());
+        desglose.setDetalles(detalles);
+        desglose.setTotalComision(totalComision);
+
+        return desglose;
+    }
+
     @Transactional
     public PagoComisionDTO update(Integer id, PagoComisionDTO dto) {
         PagoComision pago = pagoComisionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pago de comisión no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Pago de comision no encontrado"));
 
         if (dto.getMontoComision() != null) {
             pago.setMontoComision(dto.getMontoComision());
@@ -354,7 +437,7 @@ public class ComisionService {
     @Transactional
     public void softDelete(Integer id) {
         PagoComision pago = pagoComisionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Pago de comisión no encontrado"));
+                .orElseThrow(() -> new RuntimeException("Pago de comision no encontrado"));
         pago.setDeleted(true);
         pagoComisionRepository.save(pago);
     }

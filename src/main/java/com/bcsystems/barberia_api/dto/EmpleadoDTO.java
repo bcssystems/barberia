@@ -14,7 +14,8 @@ public class EmpleadoDTO {
     private Integer idEmpleado;
     private String nombre;
     private String telefono;
-    private Double porcentajeComision;
+    private Double sueldoBase;
+    private Boolean cobraComision;
     private Integer status;
 
     @JsonIgnore

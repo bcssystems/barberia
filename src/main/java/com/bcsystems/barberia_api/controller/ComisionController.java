@@ -2,6 +2,7 @@ package com.bcsystems.barberia_api.controller;
 
 import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.dto.CorteComisionDTO;
+import com.bcsystems.barberia_api.dto.DesgloseComisionDTO;
 import com.bcsystems.barberia_api.dto.PagoComisionDTO;
 import com.bcsystems.barberia_api.service.ComisionService;
 import org.springframework.data.domain.Page;
@@ -69,6 +70,14 @@ public class ComisionController {
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
                 .body(comisionService.generarCorteCompleto(inicio, fin));
+    }
+
+    @GetMapping("/desglose")
+    public ResponseEntity<DesgloseComisionDTO> getDesglose(
+            @RequestParam Integer idEmpleado,
+            @RequestParam String inicio,
+            @RequestParam String fin) {
+        return ResponseEntity.ok(comisionService.generarDesglose(idEmpleado, LocalDateTime.parse(inicio), LocalDateTime.parse(fin)));
     }
 
     @PostMapping("/pagar")

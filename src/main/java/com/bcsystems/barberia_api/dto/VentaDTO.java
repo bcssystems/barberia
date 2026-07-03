@@ -16,11 +16,18 @@ import java.util.List;
 public class VentaDTO {
     private Integer idVenta;
     private Integer idCita;
+    private Integer idCaja;
+    private String nombreCaja;
     private String nombreCliente;
     private String nombreEmpleado;
     private LocalDateTime fecha;
+    private String tipoVenta;
+    private Double subtotal;
+    private Double descuento;
     private Double total;
+    private Boolean cancelada;
     private List<VentaDetalleDTO> detalles;
+    private LocalDateTime fechaCorte;
 
     @JsonIgnore
     public Integer getId() {

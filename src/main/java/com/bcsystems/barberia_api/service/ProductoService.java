@@ -42,7 +42,7 @@ public class ProductoService {
         }
         Producto producto = toEntity(dto);
         Producto saved = productoRepository.save(producto);
-        
+
         if (saved.getStock() != null && saved.getStock() > 0) {
             MovimientoInventario movimiento = new MovimientoInventario();
             movimiento.setProducto(saved);
@@ -53,7 +53,7 @@ public class ProductoService {
             movimiento.setPagoCaja(dto.getPagoCaja() != null ? dto.getPagoCaja() : false);
             movimientoRepository.save(movimiento);
         }
-        
+
         return toDTO(saved);
     }
 
@@ -65,6 +65,7 @@ public class ProductoService {
             throw new RuntimeException("Ya existe un producto con ese nombre");
         }
         producto.setNombre(dto.getNombre());
+        producto.setSku(dto.getSku());
         producto.setDescripcion(dto.getDescripcion());
         producto.setPrecioCompra(dto.getPrecioCompra());
         producto.setPrecioVenta(dto.getPrecioVenta());
@@ -81,21 +82,23 @@ public class ProductoService {
     }
 
     private ProductoDTO toDTO(Producto producto) {
-        return new ProductoDTO(
-                producto.getIdProducto(),
-                producto.getNombre(),
-                producto.getDescripcion(),
-                producto.getPrecioCompra(),
-                producto.getPrecioVenta(),
-                producto.getStock(),
-                producto.getStatus(),
-                null // pagoCaja no se almacena en Producto, solo en MovimientoInventario
-        );
+        ProductoDTO dto = new ProductoDTO();
+        dto.setIdProducto(producto.getIdProducto());
+        dto.setNombre(producto.getNombre());
+        dto.setSku(producto.getSku());
+        dto.setDescripcion(producto.getDescripcion());
+        dto.setPrecioCompra(producto.getPrecioCompra());
+        dto.setPrecioVenta(producto.getPrecioVenta());
+        dto.setStock(producto.getStock());
+        dto.setStatus(producto.getStatus());
+        dto.setPagoCaja(null);
+        return dto;
     }
 
     private Producto toEntity(ProductoDTO dto) {
         Producto producto = new Producto();
         producto.setNombre(dto.getNombre());
+        producto.setSku(dto.getSku());
         producto.setDescripcion(dto.getDescripcion());
         producto.setPrecioCompra(dto.getPrecioCompra());
         producto.setPrecioVenta(dto.getPrecioVenta());

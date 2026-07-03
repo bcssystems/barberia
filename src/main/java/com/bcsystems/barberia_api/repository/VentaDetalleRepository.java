@@ -27,4 +27,7 @@ public interface VentaDetalleRepository extends JpaRepository<VentaDetalle, Inte
 
     @Query("SELECT SUM(vd.producto.precioCompra * vd.cantidad) FROM VentaDetalle vd WHERE vd.producto IS NOT NULL AND vd.producto.precioCompra IS NOT NULL AND vd.venta.fecha BETWEEN :start AND :end AND vd.venta.fechaCorte IS NULL")
     Double sumCostoProductosByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(vd.montoComision), 0) FROM VentaDetalle vd WHERE vd.venta.fecha BETWEEN :start AND :end AND vd.venta.fechaCorte IS NULL")
+    Double sumComisionesByFechaBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

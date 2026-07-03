@@ -50,6 +50,8 @@ public class ServicioService {
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setDuracionMinutos(dto.getDuracionMinutos());
         servicio.setPrecio(dto.getPrecio());
+        servicio.setComision(dto.getComision() != null ? dto.getComision() : 0.0);
+        if (dto.getStatus() != null) servicio.setStatus(dto.getStatus());
         return toDTO(servicioRepository.save(servicio));
     }
 
@@ -62,14 +64,15 @@ public class ServicioService {
     }
 
     private ServicioDTO toDTO(Servicio servicio) {
-        return new ServicioDTO(
-                servicio.getIdServicio(),
-                servicio.getNombre(),
-                servicio.getDescripcion(),
-                servicio.getDuracionMinutos(),
-                servicio.getPrecio(),
-                servicio.getStatus()
-        );
+        ServicioDTO dto = new ServicioDTO();
+        dto.setIdServicio(servicio.getIdServicio());
+        dto.setNombre(servicio.getNombre());
+        dto.setDescripcion(servicio.getDescripcion());
+        dto.setDuracionMinutos(servicio.getDuracionMinutos());
+        dto.setPrecio(servicio.getPrecio());
+        dto.setComision(servicio.getComision());
+        dto.setStatus(servicio.getStatus());
+        return dto;
     }
 
     private Servicio toEntity(ServicioDTO dto) {
@@ -78,6 +81,7 @@ public class ServicioService {
         servicio.setDescripcion(dto.getDescripcion());
         servicio.setDuracionMinutos(dto.getDuracionMinutos());
         servicio.setPrecio(dto.getPrecio());
+        servicio.setComision(dto.getComision() != null ? dto.getComision() : 0.0);
         return servicio;
     }
 }

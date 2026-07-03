@@ -16,6 +16,7 @@ public class ServicioDTO {
     private String descripcion;
     private Integer duracionMinutos;
     private Double precio;
+    private Double comision;
     private Integer status;
 
     @JsonIgnore

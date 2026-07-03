@@ -42,6 +42,13 @@ public class Corte {
     
     // Utilidad neta
     private Double utilidadNeta;
+
+    // Caja
+    private Double totalFondoCaja = 0.0;
+    private Double totalIngresosCaja = 0.0;
+    private Double totalEgresosCaja = 0.0;
+    private Double saldoEsperado = 0.0;
+    private Double saldoFinal = 0.0;
     
     // Fecha en que se guardo el corte
     private LocalDateTime fechaRegistro;

@@ -54,6 +54,11 @@ public class VentaController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<VentaDTO> cancelar(@PathVariable Integer id) {
+        return ResponseEntity.ok(ventaService.cancelarVenta(id));
+    }
+
     @GetMapping("/fecha")
     public ResponseEntity<Page<VentaDTO>> findByFechaBetween(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,

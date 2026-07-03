@@ -11,18 +11,16 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "servicio")
-public class Servicio {
+@Table(name = "configuracion")
+public class Configuracion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idServicio;
-    @Column(unique = true)
-    private String nombre;
-    private String descripcion;
-    private Integer duracionMinutos;
-    private Double precio;
-    private Double comision = 0.0;
-    private Integer status = 1;
+    private Integer idConfiguracion;
 
+    @Column(unique = true, nullable = false)
+    private String clave;
+
+    @Column(columnDefinition = "TEXT")
+    private String valor;
 }

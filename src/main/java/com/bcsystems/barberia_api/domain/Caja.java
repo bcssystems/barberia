@@ -6,23 +6,29 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "servicio")
-public class Servicio {
+@Table(name = "caja")
+public class Caja {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer idServicio;
-    @Column(unique = true)
-    private String nombre;
-    private String descripcion;
-    private Integer duracionMinutos;
-    private Double precio;
-    private Double comision = 0.0;
-    private Integer status = 1;
+    private Integer idCaja;
 
+    private String nombre;
+
+    private Double saldoInicial;
+
+    private Double saldoActual;
+
+    private LocalDateTime fechaApertura;
+
+    private LocalDateTime fechaCierre;
+
+    private String estado = "CERRADA";
 }

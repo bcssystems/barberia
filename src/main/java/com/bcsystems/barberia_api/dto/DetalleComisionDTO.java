@@ -5,20 +5,19 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class VentaDetalleDTO {
+public class DetalleComisionDTO {
     private Integer idVentaDetalle;
     private Integer idVenta;
-    private Integer idProducto;
-    private String nombreProducto;
-    private String skuProducto;
     private Integer idServicio;
     private String nombreServicio;
-    private Integer cantidad;
-    private Double precio;
+    private Double precioServicio;
     private Double montoComision;
-    private Boolean comisionPagada;
+    private LocalDateTime fechaVenta;
+    private Boolean pagada;
 }

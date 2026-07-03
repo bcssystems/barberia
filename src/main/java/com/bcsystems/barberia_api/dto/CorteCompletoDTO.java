@@ -27,6 +27,13 @@ public class CorteCompletoDTO {
     
     // Utilidad neta
     private Double utilidadNeta;
+
+    // Caja
+    private Double totalFondoCaja;
+    private Double totalIngresosCaja;
+    private Double totalEgresosCaja;
+    private Double saldoEsperado;
+    private Double saldoFinal;
     
     // Getters y setters
     public LocalDateTime getFechaInicio() { return fechaInicio; }
@@ -67,4 +74,19 @@ public class CorteCompletoDTO {
     
     public Double getUtilidadNeta() { return utilidadNeta; }
     public void setUtilidadNeta(Double utilidadNeta) { this.utilidadNeta = utilidadNeta; }
+
+    public Double getTotalFondoCaja() { return totalFondoCaja; }
+    public void setTotalFondoCaja(Double totalFondoCaja) { this.totalFondoCaja = totalFondoCaja; }
+
+    public Double getTotalIngresosCaja() { return totalIngresosCaja; }
+    public void setTotalIngresosCaja(Double totalIngresosCaja) { this.totalIngresosCaja = totalIngresosCaja; }
+
+    public Double getTotalEgresosCaja() { return totalEgresosCaja; }
+    public void setTotalEgresosCaja(Double totalEgresosCaja) { this.totalEgresosCaja = totalEgresosCaja; }
+
+    public Double getSaldoEsperado() { return saldoEsperado; }
+    public void setSaldoEsperado(Double saldoEsperado) { this.saldoEsperado = saldoEsperado; }
+
+    public Double getSaldoFinal() { return saldoFinal; }
+    public void setSaldoFinal(Double saldoFinal) { this.saldoFinal = saldoFinal; }
 }

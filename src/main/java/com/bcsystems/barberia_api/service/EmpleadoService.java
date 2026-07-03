@@ -54,7 +54,9 @@ public class EmpleadoService {
         }
         empleado.setNombre(dto.getNombre());
         empleado.setTelefono(dto.getTelefono());
-        empleado.setPorcentajeComision(dto.getPorcentajeComision());
+        empleado.setSueldoBase(dto.getSueldoBase() != null ? dto.getSueldoBase() : 0.0);
+        empleado.setCobraComision(dto.getCobraComision() != null ? dto.getCobraComision() : true);
+        if (dto.getStatus() != null) empleado.setStatus(dto.getStatus());
         return toDTO(empleadoRepository.save(empleado));
     }
 
@@ -67,20 +69,23 @@ public class EmpleadoService {
     }
 
     private EmpleadoDTO toDTO(Empleado empleado) {
-        return new EmpleadoDTO(
-                empleado.getIdEmpleado(),
-                empleado.getNombre(),
-                empleado.getTelefono(),
-                empleado.getPorcentajeComision(),
-                empleado.getStatus()
-        );
+        EmpleadoDTO dto = new EmpleadoDTO();
+        dto.setIdEmpleado(empleado.getIdEmpleado());
+        dto.setNombre(empleado.getNombre());
+        dto.setTelefono(empleado.getTelefono());
+        dto.setSueldoBase(empleado.getSueldoBase());
+        dto.setCobraComision(empleado.getCobraComision());
+        dto.setStatus(empleado.getStatus());
+        return dto;
     }
 
     private Empleado toEntity(EmpleadoDTO dto) {
         Empleado empleado = new Empleado();
         empleado.setNombre(dto.getNombre());
         empleado.setTelefono(dto.getTelefono());
-        empleado.setPorcentajeComision(dto.getPorcentajeComision());
+        empleado.setSueldoBase(dto.getSueldoBase() != null ? dto.getSueldoBase() : 0.0);
+        empleado.setCobraComision(dto.getCobraComision() != null ? dto.getCobraComision() : true);
+        empleado.setStatus(dto.getStatus() != null ? dto.getStatus() : 1);
         return empleado;
     }
 }

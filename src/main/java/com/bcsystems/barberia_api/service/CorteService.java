@@ -45,6 +45,11 @@ public class CorteService {
         corte.setTotalComisionesPendientes(dto.getTotalComisionesPendientes());
         corte.setTotalComisionesPagadas(dto.getTotalComisionesPagadas());
         corte.setUtilidadNeta(dto.getUtilidadNeta());
+        corte.setTotalFondoCaja(dto.getTotalFondoCaja() != null ? dto.getTotalFondoCaja() : 0.0);
+        corte.setTotalIngresosCaja(dto.getTotalIngresosCaja() != null ? dto.getTotalIngresosCaja() : 0.0);
+        corte.setTotalEgresosCaja(dto.getTotalEgresosCaja() != null ? dto.getTotalEgresosCaja() : 0.0);
+        corte.setSaldoEsperado(dto.getSaldoEsperado() != null ? dto.getSaldoEsperado() : 0.0);
+        corte.setSaldoFinal(dto.getSaldoFinal() != null ? dto.getSaldoFinal() : 0.0);
         corte.setFechaRegistro(LocalDateTime.now());
         corte.setEstado("ACTIVO");
         Corte saved = corteRepository.save(corte);
