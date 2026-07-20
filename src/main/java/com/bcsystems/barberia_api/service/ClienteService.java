@@ -31,11 +31,16 @@ public class ClienteService {
 
     @Transactional
     public ClienteDTO save(ClienteDTO dto) {
+        if (dto.getNombre() == null || dto.getNombre().trim().isEmpty()) {
+            throw new RuntimeException("El nombre es obligatorio");
+        }
         if (clienteRepository.existsByNombre(dto.getNombre())) {
             throw new RuntimeException("Ya existe un cliente con ese nombre");
         }
-        if (clienteRepository.existsByTelefono(dto.getTelefono())) {
-            throw new RuntimeException("Ya existe un cliente con ese teléfono");
+        if (dto.getTelefono() != null && !dto.getTelefono().trim().isEmpty()) {
+            if (clienteRepository.existsByTelefono(dto.getTelefono())) {
+                throw new RuntimeException("Ya existe un cliente con ese teléfono");
+            }
         }
         Cliente cliente = toEntity(dto);
         Cliente saved = clienteRepository.save(cliente);
@@ -49,8 +54,13 @@ public class ClienteService {
         if (!cliente.getNombre().equalsIgnoreCase(dto.getNombre()) && clienteRepository.existsByNombre(dto.getNombre())) {
             throw new RuntimeException("Ya existe un cliente con ese nombre");
         }
-        if (!cliente.getTelefono().equals(dto.getTelefono()) && clienteRepository.existsByTelefono(dto.getTelefono())) {
-            throw new RuntimeException("Ya existe un cliente con ese teléfono");
+        if (dto.getTelefono() != null && !dto.getTelefono().trim().isEmpty()) {
+            String telActual = cliente.getTelefono();
+            if (telActual == null || !telActual.equals(dto.getTelefono())) {
+                if (clienteRepository.existsByTelefono(dto.getTelefono())) {
+                    throw new RuntimeException("Ya existe un cliente con ese teléfono");
+                }
+            }
         }
         cliente.setNombre(dto.getNombre());
         cliente.setTelefono(dto.getTelefono());
