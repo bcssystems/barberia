@@ -39,7 +39,11 @@ public class ConfiguracionService {
     @Transactional
     public ConfiguracionDTO update(String clave, ConfiguracionDTO dto) {
         Configuracion config = configuracionRepository.findByClave(clave)
-                .orElseThrow(() -> new RuntimeException("Configuracion no encontrada: " + clave));
+                .orElseGet(() -> {
+                    Configuracion c = new Configuracion();
+                    c.setClave(clave);
+                    return c;
+                });
         config.setValor(dto.getValor());
         return toDTO(configuracionRepository.save(config));
     }

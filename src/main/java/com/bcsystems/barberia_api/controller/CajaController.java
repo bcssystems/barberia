@@ -48,8 +48,8 @@ public class CajaController {
     }
 
     @PostMapping("/{id}/apertura")
-    public ResponseEntity<CajaDTO> apertura(@PathVariable Integer id, @RequestBody Map<String, Double> body) {
-        Double saldoInicial = body.get("saldoInicial");
+    public ResponseEntity<CajaDTO> apertura(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
+        Double saldoInicial = body.get("saldoInicial") != null ? ((Number) body.get("saldoInicial")).doubleValue() : 0.0;
         return ResponseEntity.ok(cajaService.apertura(id, saldoInicial));
     }
 
@@ -60,14 +60,14 @@ public class CajaController {
 
     @PostMapping("/{id}/ingresos")
     public ResponseEntity<MovimientoCajaDTO> ingresarEfectivo(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
-        Double monto = (Double) body.get("monto");
+        Double monto = ((Number) body.get("monto")).doubleValue();
         String motivo = (String) body.get("motivo");
         return ResponseEntity.ok(cajaService.ingresarEfectivo(id, monto, motivo));
     }
 
     @PostMapping("/{id}/egresos")
     public ResponseEntity<MovimientoCajaDTO> retirarEfectivo(@PathVariable Integer id, @RequestBody Map<String, Object> body) {
-        Double monto = (Double) body.get("monto");
+        Double monto = ((Number) body.get("monto")).doubleValue();
         String motivo = (String) body.get("motivo");
         return ResponseEntity.ok(cajaService.retirarEfectivo(id, monto, motivo));
     }
