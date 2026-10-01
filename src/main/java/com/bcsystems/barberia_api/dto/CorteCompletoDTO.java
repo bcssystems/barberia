@@ -34,6 +34,28 @@ public class CorteCompletoDTO {
     private Double totalEgresosCaja;
     private Double saldoEsperado;
     private Double saldoFinal;
+
+    // Desglose por metodo de pago
+    private Double totalEfectivo;
+    private Double totalTarjeta;
+    private Double totalTransferencia;
+
+    // Caja y usuario que realizaron el corte
+    private Integer idCaja;
+    private String nombreCaja;
+    private String usuario;
+
+    // Operaciones por metodo de pago (sistema)
+    private Integer efectivoOperaciones;
+    private Integer tarjetaOperaciones;
+    private Integer transferenciaOperaciones;
+
+    // Conteo real declarado por el cajero
+    private Double efectivoReal;
+    private Double tarjetaReal;
+    private Double transferenciaReal;
+    private Double totalReal;
+    private Double diferencia;
     
     // Getters y setters
     public LocalDateTime getFechaInicio() { return fechaInicio; }
@@ -89,4 +111,46 @@ public class CorteCompletoDTO {
 
     public Double getSaldoFinal() { return saldoFinal; }
     public void setSaldoFinal(Double saldoFinal) { this.saldoFinal = saldoFinal; }
+
+    public Double getTotalEfectivo() { return totalEfectivo; }
+    public void setTotalEfectivo(Double totalEfectivo) { this.totalEfectivo = totalEfectivo; }
+
+    public Double getTotalTarjeta() { return totalTarjeta; }
+    public void setTotalTarjeta(Double totalTarjeta) { this.totalTarjeta = totalTarjeta; }
+
+    public Double getTotalTransferencia() { return totalTransferencia; }
+    public void setTotalTransferencia(Double totalTransferencia) { this.totalTransferencia = totalTransferencia; }
+
+    public Integer getIdCaja() { return idCaja; }
+    public void setIdCaja(Integer idCaja) { this.idCaja = idCaja; }
+
+    public String getNombreCaja() { return nombreCaja; }
+    public void setNombreCaja(String nombreCaja) { this.nombreCaja = nombreCaja; }
+
+    public String getUsuario() { return usuario; }
+    public void setUsuario(String usuario) { this.usuario = usuario; }
+
+    public Integer getEfectivoOperaciones() { return efectivoOperaciones; }
+    public void setEfectivoOperaciones(Integer efectivoOperaciones) { this.efectivoOperaciones = efectivoOperaciones; }
+
+    public Integer getTarjetaOperaciones() { return tarjetaOperaciones; }
+    public void setTarjetaOperaciones(Integer tarjetaOperaciones) { this.tarjetaOperaciones = tarjetaOperaciones; }
+
+    public Integer getTransferenciaOperaciones() { return transferenciaOperaciones; }
+    public void setTransferenciaOperaciones(Integer transferenciaOperaciones) { this.transferenciaOperaciones = transferenciaOperaciones; }
+
+    public Double getEfectivoReal() { return efectivoReal; }
+    public void setEfectivoReal(Double efectivoReal) { this.efectivoReal = efectivoReal; }
+
+    public Double getTarjetaReal() { return tarjetaReal; }
+    public void setTarjetaReal(Double tarjetaReal) { this.tarjetaReal = tarjetaReal; }
+
+    public Double getTransferenciaReal() { return transferenciaReal; }
+    public void setTransferenciaReal(Double transferenciaReal) { this.transferenciaReal = transferenciaReal; }
+
+    public Double getTotalReal() { return totalReal; }
+    public void setTotalReal(Double totalReal) { this.totalReal = totalReal; }
+
+    public Double getDiferencia() { return diferencia; }
+    public void setDiferencia(Double diferencia) { this.diferencia = diferencia; }
 }

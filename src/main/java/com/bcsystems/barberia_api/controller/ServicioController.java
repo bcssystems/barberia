@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,6 +21,7 @@ public class ServicioController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('SERVICIOS_VER','SERVICIOS_CREAR','SERVICIOS_EDITAR')")
     public ResponseEntity<Page<ServicioDTO>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -28,6 +30,7 @@ public class ServicioController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SERVICIOS_VER','SERVICIOS_CREAR','SERVICIOS_EDITAR')")
     public ResponseEntity<ServicioDTO> findById(@PathVariable Integer id) {
         return servicioService.findById(id)
                 .map(ResponseEntity::ok)
@@ -35,17 +38,20 @@ public class ServicioController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SERVICIOS_CREAR')")
     public ResponseEntity<ServicioDTO> create(@RequestBody ServicioDTO dto) {
         ServicioDTO saved = servicioService.save(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SERVICIOS_EDITAR')")
     public ResponseEntity<ServicioDTO> update(@PathVariable Integer id, @RequestBody ServicioDTO dto) {
         return ResponseEntity.ok(servicioService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SERVICIOS_ELIMINAR')")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         servicioService.delete(id);
         return ResponseEntity.noContent().build();

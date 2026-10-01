@@ -19,6 +19,7 @@ public class VentaDTO {
     private Integer idCaja;
     private String nombreCaja;
     private String nombreCliente;
+    private Integer idEmpleado;
     private String nombreEmpleado;
     private LocalDateTime fecha;
     private String tipoVenta;
@@ -27,6 +28,7 @@ public class VentaDTO {
     private Double total;
     private Boolean cancelada;
     private List<VentaDetalleDTO> detalles;
+    private List<VentaPagoDTO> pagos;
     private LocalDateTime fechaCorte;
 
     @JsonIgnore

@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -14,6 +16,13 @@ public class CortePreviewDTO {
     private Double totalVentas;
     private Double totalVentasContado;
     private Double totalVentasCredito;
+
+    // Desglose por metodo de pago
+    private Double totalEfectivo;
+    private Double totalTarjeta;
+    private Double totalTransferencia;
+    private List<MetodoPagoResumenDTO> porMetodo;
+
     private Double totalIngresos;
     private Double totalEgresos;
     private Double saldoEsperado;

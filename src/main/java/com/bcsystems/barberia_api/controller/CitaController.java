@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,6 +22,7 @@ public class CitaController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('CITAS_VER','CITAS_CREAR','CITAS_EDITAR')")
     public ResponseEntity<Page<CitaDTO>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -29,6 +31,7 @@ public class CitaController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('CITAS_VER','CITAS_CREAR','CITAS_EDITAR')")
     public ResponseEntity<CitaDTO> findById(@PathVariable Integer id) {
         return citaService.findById(id)
                 .map(ResponseEntity::ok)
@@ -36,23 +39,27 @@ public class CitaController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('CITAS_CREAR')")
     public ResponseEntity<CitaDTO> create(@RequestBody CitaDTO dto) {
         CitaDTO saved = citaService.save(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('CITAS_EDITAR')")
     public ResponseEntity<CitaDTO> update(@PathVariable Integer id, @RequestBody CitaDTO dto) {
         return ResponseEntity.ok(citaService.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('CITAS_ELIMINAR')")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         citaService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/empleado/{idEmpleado}")
+    @PreAuthorize("hasAnyAuthority('CITAS_VER','CITAS_CREAR','CITAS_EDITAR')")
     public ResponseEntity<Page<CitaDTO>> findByEmpleado(
             @PathVariable Integer idEmpleado,
             @RequestParam(defaultValue = "0") int page,
@@ -62,6 +69,7 @@ public class CitaController {
     }
 
     @GetMapping("/cliente/{idCliente}")
+    @PreAuthorize("hasAnyAuthority('CITAS_VER','CITAS_CREAR','CITAS_EDITAR')")
     public ResponseEntity<Page<CitaDTO>> findByCliente(
             @PathVariable Integer idCliente,
             @RequestParam(defaultValue = "0") int page,
@@ -71,6 +79,7 @@ public class CitaController {
     }
 
     @GetMapping("/estado/{estado}")
+    @PreAuthorize("hasAnyAuthority('CITAS_VER','CITAS_CREAR','CITAS_EDITAR')")
     public ResponseEntity<Page<CitaDTO>> findByEstado(
             @PathVariable EstadoCita estado,
             @RequestParam(defaultValue = "0") int page,

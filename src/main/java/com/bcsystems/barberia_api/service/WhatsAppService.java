@@ -22,10 +22,10 @@ public class WhatsAppService {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
-    @Value("${wasenderapi.api-key}")
+    @Value("${wasenderapi.api-key:}")
     private String apiKey;
 
-    @Value("${wasenderapi.api-url}")
+    @Value("${wasenderapi.api-url:}")
     private String apiUrl;
 
     @Async
@@ -33,6 +33,13 @@ public class WhatsAppService {
                                             LocalDateTime fechaInicio, LocalDateTime fechaFin,
                                             List<String> servicios, Double total) {
         try {
+            // Sin API key configurada se omite el envio (la app sigue funcionando)
+            if (apiKey == null || apiKey.isBlank() || apiUrl == null || apiUrl.isBlank()) {
+                log.warn("WhatsApp no configurado (wasenderapi.api-key/api-url vacios). Confirmacion omitida para {}.",
+                        clientName);
+                return;
+            }
+
             String normalizedPhone = normalizePhone(phone);
             if (normalizedPhone == null) {
                 log.warn("Telefono invalido para el cliente {}: {}", clientName, phone);

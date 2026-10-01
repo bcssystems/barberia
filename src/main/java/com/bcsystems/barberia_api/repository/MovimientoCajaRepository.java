@@ -15,4 +15,10 @@ public interface MovimientoCajaRepository extends JpaRepository<MovimientoCaja, 
 
     @Query("SELECT COALESCE(SUM(m.monto), 0) FROM MovimientoCaja m WHERE m.caja.idCaja = :idCaja AND m.tipo = :tipo AND m.fechaCorte IS NULL")
     Double sumByCajaAndTipoAndFechaCorteIsNull(@Param("idCaja") Integer idCaja, @Param("tipo") String tipo);
+
+    @Query("SELECT COUNT(m) FROM MovimientoCaja m WHERE m.caja.idCaja = :idCaja AND m.tipo = :tipo AND m.fechaCorte IS NULL")
+    Long countByCajaAndTipoAndFechaCorteIsNull(@Param("idCaja") Integer idCaja, @Param("tipo") String tipo);
+
+    @Query("SELECT m.tipo, COALESCE(SUM(m.monto), 0) FROM MovimientoCaja m WHERE m.caja.idCaja = :idCaja AND m.fechaCorte IS NULL GROUP BY m.tipo")
+    List<Object[]> sumGroupedByTipoAndFechaCorteIsNull(@Param("idCaja") Integer idCaja);
 }

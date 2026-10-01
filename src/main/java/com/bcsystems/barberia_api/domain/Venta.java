@@ -27,6 +27,9 @@ public class Venta {
     @ManyToOne
     @JoinColumn(name = "id_caja", nullable = true)
     private Caja caja;
+    @ManyToOne
+    @JoinColumn(name = "id_empleado", nullable = true)
+    private Empleado empleado;
     private LocalDateTime fecha = LocalDateTime.now();
     private String tipoVenta = "CONTADO";
     private Double subtotal = 0.0;
@@ -36,5 +39,7 @@ public class Venta {
     private LocalDateTime fechaCorte;
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VentaDetalle> detalles = new ArrayList<>();
+    @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<VentaPago> pagos = new ArrayList<>();
 
 }

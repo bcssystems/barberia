@@ -7,11 +7,16 @@ import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.repository.CorteRepository;
 import com.bcsystems.barberia_api.repository.MovimientoInventarioRepository;
 import com.bcsystems.barberia_api.repository.VentaRepository;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -50,6 +55,20 @@ public class CorteService {
         corte.setTotalEgresosCaja(dto.getTotalEgresosCaja() != null ? dto.getTotalEgresosCaja() : 0.0);
         corte.setSaldoEsperado(dto.getSaldoEsperado() != null ? dto.getSaldoEsperado() : 0.0);
         corte.setSaldoFinal(dto.getSaldoFinal() != null ? dto.getSaldoFinal() : 0.0);
+        corte.setTotalEfectivo(dto.getTotalEfectivo() != null ? dto.getTotalEfectivo() : 0.0);
+        corte.setTotalTarjeta(dto.getTotalTarjeta() != null ? dto.getTotalTarjeta() : 0.0);
+        corte.setTotalTransferencia(dto.getTotalTransferencia() != null ? dto.getTotalTransferencia() : 0.0);
+        corte.setIdCaja(dto.getIdCaja());
+        corte.setNombreCaja(dto.getNombreCaja());
+        corte.setUsuario(dto.getUsuario());
+        corte.setEfectivoOperaciones(dto.getEfectivoOperaciones() != null ? dto.getEfectivoOperaciones() : 0);
+        corte.setTarjetaOperaciones(dto.getTarjetaOperaciones() != null ? dto.getTarjetaOperaciones() : 0);
+        corte.setTransferenciaOperaciones(dto.getTransferenciaOperaciones() != null ? dto.getTransferenciaOperaciones() : 0);
+        corte.setEfectivoReal(dto.getEfectivoReal());
+        corte.setTarjetaReal(dto.getTarjetaReal());
+        corte.setTransferenciaReal(dto.getTransferenciaReal());
+        corte.setTotalReal(dto.getTotalReal());
+        corte.setDiferencia(dto.getDiferencia());
         corte.setFechaRegistro(LocalDateTime.now());
         corte.setEstado("ACTIVO");
         Corte saved = corteRepository.save(corte);
@@ -75,7 +94,29 @@ public class CorteService {
 
     @Transactional(readOnly = true)
     public List<Corte> findAll() {
-        return corteRepository.findAll();
+        return corteRepository.findAllByOrderByFechaRegistroDesc();
+    }
+
+    /**
+     * Historial de cortes filtrado y paginado (Caja, Desde, Hasta).
+     * Sin filtros devuelve todos en orden de registro descendente.
+     */
+    @Transactional(readOnly = true)
+    public Page<Corte> findAllFiltrados(Integer idCaja, LocalDateTime desde, LocalDateTime hasta, Pageable pageable) {
+        Specification<Corte> spec = (root, query, cb) -> {
+            List<Predicate> preds = new ArrayList<>();
+            if (idCaja != null) {
+                preds.add(cb.equal(root.get("idCaja"), idCaja));
+            }
+            if (desde != null) {
+                preds.add(cb.greaterThanOrEqualTo(root.get("fechaRegistro"), desde));
+            }
+            if (hasta != null) {
+                preds.add(cb.lessThanOrEqualTo(root.get("fechaRegistro"), hasta));
+            }
+            return preds.isEmpty() ? cb.conjunction() : cb.and(preds.toArray(new Predicate[0]));
+        };
+        return corteRepository.findAll(spec, pageable);
     }
 
     @Transactional(readOnly = true)

@@ -18,9 +18,11 @@ import com.bcsystems.barberia_api.repository.VentaRepository;
 import com.bcsystems.barberia_api.service.WhatsAppService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -47,8 +49,36 @@ public class CitaService {
         this.whatsAppService = whatsAppService;
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Marca como VENCIDAS las citas PENDIENTE cuya hora de fin ya paso.
+     * Se ejecuta cada minuto en el servidor.
+     */
+    @Scheduled(cron = "0 * * * * *")
+    @Transactional
+    public void marcarCitasVencidas() {
+        try {
+            doMarcarVencidas();
+        } catch (Exception e) {
+            System.out.println("Error marcando citas vencidas: " + e.getMessage());
+        }
+    }
+
+    /** Logica compartida por el job y por la lectura del listado. */
+    private int doMarcarVencidas() {
+        List<Cita> vencidas = citaRepository.findByEstadoAndFechaFinBefore(EstadoCita.PENDIENTE, LocalDateTime.now());
+        if (vencidas.isEmpty()) {
+            return 0;
+        }
+        for (Cita cita : vencidas) {
+            cita.setEstado(EstadoCita.VENCIDA);
+        }
+        citaRepository.saveAll(vencidas);
+        return vencidas.size();
+    }
+
+    @Transactional
     public Page<CitaDTO> findAll(Pageable pageable) {
+        doMarcarVencidas();
         return citaRepository.findAll(pageable).map(this::toDTO);
     }
 

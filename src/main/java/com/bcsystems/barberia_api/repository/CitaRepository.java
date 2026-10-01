@@ -21,6 +21,8 @@ public interface CitaRepository extends JpaRepository<Cita, Integer> {
     List<Cita> findByEmpleadoIdEmpleadoAndFechaInicioBetweenAndEstadoNot(
             Integer idEmpleado, LocalDateTime start, LocalDateTime end, EstadoCita estado);
 
+    List<Cita> findByEstadoAndFechaFinBefore(EstadoCita estado, LocalDateTime limite);
+
     @Query("SELECT COUNT(c) FROM Cita c WHERE c.fechaInicio BETWEEN :start AND :end")
     Long countByFechaInicioBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 

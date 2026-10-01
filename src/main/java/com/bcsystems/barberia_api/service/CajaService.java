@@ -6,6 +6,7 @@ import com.bcsystems.barberia_api.domain.MovimientoCaja;
 import com.bcsystems.barberia_api.dto.CajaDTO;
 import com.bcsystems.barberia_api.dto.CorteCompletoDTO;
 import com.bcsystems.barberia_api.dto.CortePreviewDTO;
+import com.bcsystems.barberia_api.dto.MetodoPagoResumenDTO;
 import com.bcsystems.barberia_api.dto.MovimientoCajaDTO;
 import com.bcsystems.barberia_api.repository.CajaRepository;
 import com.bcsystems.barberia_api.repository.ConfiguracionRepository;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -91,6 +94,16 @@ public class CajaService {
 
     @Transactional
     public CajaDTO cierre(Integer id) {
+        return cierre(id, null, null);
+    }
+
+    /**
+     * Cierra la caja guardando el corte completo.
+     * @param conteo conteo real declarado por el cajero por metodo de pago (puede ser null)
+     * @param usuario usuario que realizo el corte
+     */
+    @Transactional
+    public CajaDTO cierre(Integer id, Map<String, Double> conteo, String usuario) {
         Caja caja = cajaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Caja no encontrada"));
         if (!"ABIERTA".equals(caja.getEstado())) {
@@ -105,14 +118,52 @@ public class CajaService {
 
         Double ingresosCaja = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(id, "INGRESO");
         Double egresosCaja = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(id, "EGRESO");
-        Double ventasContado = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(id, "VENTA_CONTADO");
-        Double ventasCredito = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(id, "VENTA_CREDITO");
 
+        corteDTO.setIdCaja(caja.getIdCaja());
+        corteDTO.setNombreCaja(caja.getNombre());
+        corteDTO.setUsuario(usuario);
         corteDTO.setTotalFondoCaja(caja.getSaldoInicial());
         corteDTO.setTotalIngresosCaja(ingresosCaja != null ? ingresosCaja : 0.0);
         corteDTO.setTotalEgresosCaja(egresosCaja != null ? egresosCaja : 0.0);
-        double totalVentasCaja = (ventasContado != null ? ventasContado : 0.0) + (ventasCredito != null ? ventasCredito : 0.0);
-        corteDTO.setSaldoEsperado(caja.getSaldoInicial() + totalVentasCaja + corteDTO.getTotalIngresosCaja() - corteDTO.getTotalEgresosCaja());
+
+        // El saldo esperado del cajon = fondo + efectivo cobrado - cambio + ingresos - egresos
+        double efectivoVentas = sumaMovimiento(id, "VENTA_EFECTIVO");
+        double anulacionesEfectivo = sumaMovimiento(id, "ANULACION_EFECTIVO");
+        double cambios = sumaMovimiento(id, "CAMBIO");
+        double efectivoNeto = Math.max(0, efectivoVentas - anulacionesEfectivo - cambios);
+
+        // Desglose por metodo de pago que queda guardado en el corte
+        corteDTO.setTotalEfectivo(efectivoNeto);
+        corteDTO.setTotalTarjeta(Math.max(0, sumaMovimiento(id, "VENTA_TARJETA")
+                - sumaMovimiento(id, "ANULACION_TARJETA")));
+        corteDTO.setTotalTransferencia(Math.max(0, sumaMovimiento(id, "VENTA_TRANSFERENCIA")
+                - sumaMovimiento(id, "ANULACION_TRANSFERENCIA")));
+
+        // Operaciones por metodo de pago (conteo del sistema)
+        corteDTO.setEfectivoOperaciones(operaciones(id, "VENTA_EFECTIVO"));
+        corteDTO.setTarjetaOperaciones(operaciones(id, "VENTA_TARJETA"));
+        corteDTO.setTransferenciaOperaciones(operaciones(id, "VENTA_TRANSFERENCIA"));
+
+        // Conteo real declarado por el cajero
+        Double efectivoReal = conteoReal(conteo, "EFECTIVO");
+        Double tarjetaReal = conteoReal(conteo, "TARJETA");
+        Double transferenciaReal = conteoReal(conteo, "TRANSFERENCIA");
+        corteDTO.setEfectivoReal(efectivoReal);
+        corteDTO.setTarjetaReal(tarjetaReal);
+        corteDTO.setTransferenciaReal(transferenciaReal);
+
+        double totalSistema = corteDTO.getTotalEfectivo() + corteDTO.getTotalTarjeta()
+                + corteDTO.getTotalTransferencia();
+        if (efectivoReal != null || tarjetaReal != null || transferenciaReal != null) {
+            double totalReal = (efectivoReal != null ? efectivoReal : 0)
+                    + (tarjetaReal != null ? tarjetaReal : 0)
+                    + (transferenciaReal != null ? transferenciaReal : 0);
+            corteDTO.setTotalReal(totalReal);
+            corteDTO.setDiferencia(totalReal - totalSistema);
+        }
+
+        corteDTO.setSaldoEsperado(caja.getSaldoInicial() + efectivoNeto
+                + corteDTO.getTotalIngresosCaja() - corteDTO.getTotalEgresosCaja());
         corteDTO.setSaldoFinal(caja.getSaldoActual());
 
         corteService.guardarCorte(corteDTO);
@@ -127,6 +178,23 @@ public class CajaService {
         caja.setFechaCierre(ahora);
         caja.setEstado("CERRADA");
         return toDTO(cajaRepository.save(caja));
+    }
+
+    private int operaciones(Integer idCaja, String tipo) {
+        Long ops = movimientoCajaRepository.countByCajaAndTipoAndFechaCorteIsNull(idCaja, tipo);
+        return ops != null ? ops.intValue() : 0;
+    }
+
+    private Double conteoReal(Map<String, Double> conteo, String metodo) {
+        if (conteo == null) return null;
+        Object valor = conteo.get(metodo);
+        if (valor instanceof Number numero) return numero.doubleValue();
+        return null;
+    }
+
+    private double sumaMovimiento(Integer idCaja, String tipo) {
+        Double valor = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(idCaja, tipo);
+        return valor != null ? valor : 0.0;
     }
 
     @Transactional
@@ -178,22 +246,45 @@ public class CajaService {
         CortePreviewDTO preview = new CortePreviewDTO();
         preview.setSaldoInicial(caja.getSaldoInicial());
 
-        Double ventasContado = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(idCaja, "VENTA_CONTADO");
-        Double ventasCredito = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(idCaja, "VENTA_CREDITO");
-        preview.setTotalVentasContado(ventasContado != null ? ventasContado : 0.0);
-        preview.setTotalVentasCredito(ventasCredito != null ? ventasCredito : 0.0);
-        preview.setTotalVentas(preview.getTotalVentasContado() + preview.getTotalVentasCredito());
+        // Desglose por metodo de pago
+        double anulEfectivo = sumaMovimiento(idCaja, "ANULACION_EFECTIVO");
+        double anulTarjeta = sumaMovimiento(idCaja, "ANULACION_TARJETA");
+        double anulTransferencia = sumaMovimiento(idCaja, "ANULACION_TRANSFERENCIA");
 
-        Double ingresos = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(idCaja, "INGRESO");
-        preview.setTotalIngresos(ingresos != null ? ingresos : 0.0);
+        double efectivo = Math.max(0, sumaMovimiento(idCaja, "VENTA_EFECTIVO") - anulEfectivo);
+        double tarjeta = Math.max(0, sumaMovimiento(idCaja, "VENTA_TARJETA") - anulTarjeta);
+        double transferencia = Math.max(0, sumaMovimiento(idCaja, "VENTA_TRANSFERENCIA") - anulTransferencia);
 
-        Double egresos = movimientoCajaRepository.sumByCajaAndTipoAndFechaCorteIsNull(idCaja, "EGRESO");
-        preview.setTotalEgresos(egresos != null ? egresos : 0.0);
+        preview.setTotalEfectivo(efectivo);
+        preview.setTotalTarjeta(tarjeta);
+        preview.setTotalTransferencia(transferencia);
+        preview.setTotalVentas(efectivo + tarjeta + transferencia);
 
-        preview.setSaldoEsperado(caja.getSaldoInicial() + preview.getTotalVentas() + preview.getTotalIngresos() - preview.getTotalEgresos());
+        // Campos legacy: todo es contado (ya no hay creditos)
+        preview.setTotalVentasContado(preview.getTotalVentas());
+        preview.setTotalVentasCredito(0.0);
+
+        List<MetodoPagoResumenDTO> porMetodo = new ArrayList<>();
+        porMetodo.add(resumenMetodo(idCaja, "EFECTIVO", efectivo));
+        porMetodo.add(resumenMetodo(idCaja, "TARJETA", tarjeta));
+        porMetodo.add(resumenMetodo(idCaja, "TRANSFERENCIA", transferencia));
+        preview.setPorMetodo(porMetodo);
+
+        preview.setTotalIngresos(sumaMovimiento(idCaja, "INGRESO"));
+        preview.setTotalEgresos(sumaMovimiento(idCaja, "EGRESO"));
+
+        // El cajon solo refleja el efectivo (neto de cambios y anulaciones)
+        double cambios = sumaMovimiento(idCaja, "CAMBIO");
+        preview.setSaldoEsperado(caja.getSaldoInicial() + Math.max(0, efectivo - cambios)
+                + preview.getTotalIngresos() - preview.getTotalEgresos());
         preview.setSaldoActual(caja.getSaldoActual());
         preview.setDiferencia(preview.getSaldoEsperado() - caja.getSaldoActual());
         return preview;
+    }
+
+    private MetodoPagoResumenDTO resumenMetodo(Integer idCaja, String metodo, double total) {
+        Long ops = movimientoCajaRepository.countByCajaAndTipoAndFechaCorteIsNull(idCaja, "VENTA_" + metodo);
+        return new MetodoPagoResumenDTO(metodo, ops != null ? ops.intValue() : 0, total);
     }
 
     @Transactional(readOnly = true)
